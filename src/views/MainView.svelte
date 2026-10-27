@@ -505,7 +505,7 @@
     align-items: center;
     width: 100%;
     gap: 8px;
-    padding: 6px 8px;
+    padding: 3px 8px;
     border: none;
     border-left: 3px solid transparent;
     border-radius: 4px;
