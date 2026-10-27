@@ -4,6 +4,7 @@
   import { api, DEFAULT_COLORS, errorText, type Settings } from '../lib/api';
   import { dateKey } from '../lib/format';
   import { setSettings, settings } from '../lib/settings.svelte';
+  import HeimatSettings from '../components/HeimatSettings.svelte';
   import Icon from '../components/Icon.svelte';
 
   const SECTIONS = [
@@ -135,13 +136,7 @@
       </label>
     {:else if section === 'heimat'}
       <h2>Heimat API</h2>
-      <div class="notice">
-        <strong>Kommt in Version 2</strong>
-        <p class="muted">
-          Mit der Heimat-Anbindung kannst du Projekte aus Heimat importieren oder mit deinen InTime-Projekten
-          verknüpfen und die erfassten Zeiten eines Tages an Heimat übertragen.
-        </p>
-      </div>
+      <HeimatSettings />
     {:else if section === 'data'}
       <h2>Daten</h2>
       <p class="muted">Sichere deine Daten als JSON-Datei. Beim Import werden alle vorhandenen Daten ersetzt.</p>
@@ -252,16 +247,6 @@
 
   .disabled {
     opacity: 0.5;
-  }
-
-  .notice {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-    padding: 14px 16px;
-    border: 1px dashed var(--border);
-    border-radius: var(--radius);
-    background: var(--surface);
   }
 
   p {

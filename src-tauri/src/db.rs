@@ -30,6 +30,14 @@ const MIGRATIONS: &[&str] = &[r#"
         key   TEXT PRIMARY KEY,
         value TEXT NOT NULL
     );
+"#, r#"
+    -- Which Heimat task an InTime project is booked on (v0.2.0).
+    CREATE TABLE heimat_mapping (
+        project_id       INTEGER PRIMARY KEY REFERENCES project(id) ON DELETE CASCADE,
+        task_id          INTEGER NOT NULL,
+        task_name        TEXT    NOT NULL,
+        task_holder_name TEXT    NOT NULL
+    );
 "#];
 
 pub fn open(path: &Path) -> Result<Connection> {

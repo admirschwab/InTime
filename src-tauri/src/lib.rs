@@ -1,6 +1,7 @@
 mod commands;
 mod db;
 mod error;
+mod heimat;
 mod indicator;
 mod models;
 mod paths;
@@ -46,6 +47,7 @@ fn start_autosave(app: AppHandle) {
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_opener::init())
         .plugin(
             tauri_plugin_log::Builder::default()
                 .level(log::LevelFilter::Info)
@@ -113,6 +115,15 @@ pub fn run() {
             commands::import_data,
             commands::open_window,
             commands::quit_app,
+            commands::heimat_get_config,
+            commands::heimat_save_config,
+            commands::heimat_test,
+            commands::heimat_tasks,
+            commands::heimat_get_mappings,
+            commands::heimat_save_mappings,
+            commands::heimat_import_tasks,
+            commands::heimat_day,
+            commands::heimat_sync,
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")

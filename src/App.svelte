@@ -4,6 +4,7 @@
   import ReportView from './views/ReportView.svelte';
   import SettingsView from './views/SettingsView.svelte';
   import ProjectView from './views/ProjectView.svelte';
+  import HeimatView from './views/HeimatView.svelte';
 
   // Set by the backend for secondary windows (see windows.rs); the main window has none.
   const ctx: { view: string; id: number | null } = (window as any).__INTIME__ ?? { view: 'main', id: null };
@@ -23,6 +24,8 @@
     <SettingsView />
   {:else if ctx.view === 'project'}
     <ProjectView id={ctx.id} />
+  {:else if ctx.view === 'heimat'}
+    <HeimatView />
   {:else}
     <MainView />
   {/if}

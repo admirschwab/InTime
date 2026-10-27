@@ -11,8 +11,9 @@ use crate::{paths, repo};
 /// the view to render is passed via `window.__INTIME__`.
 pub fn open(app: &AppHandle, view: &str, id: Option<i64>) -> Result<()> {
     let (label, title, width, height) = match view {
-        "report" => ("report".to_string(), "InTime – Bericht", 980.0, 700.0),
+        "report" => ("report".to_string(), "InTime – Bericht", 1080.0, 740.0),
         "settings" => ("settings".to_string(), "InTime – Einstellungen", 760.0, 520.0),
+        "heimat" => ("heimat".to_string(), "InTime – Heimat-Zuordnung", 820.0, 640.0),
         "project" => {
             let label = format!("project-{}", id.map_or("new".to_string(), |id| id.to_string()));
             let title = if id.is_some() { "InTime – Projekt bearbeiten" } else { "InTime – Neues Projekt" };

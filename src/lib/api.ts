@@ -45,6 +45,54 @@ export interface Settings {
   confirmClose: boolean;
 }
 
+export interface HeimatConfig {
+  url: string;
+  token: string;
+}
+
+export interface HeimatTask {
+  id: number;
+  name: string;
+  taskHolderName: string;
+  taskHolderType: string;
+  isFavorite: boolean;
+  bookingHint: string | null;
+  isStartAndEndTimeRequired: boolean;
+  isNoteOptional: boolean;
+}
+
+export interface HeimatMapping {
+  projectId: number;
+  taskId: number;
+  taskName: string;
+  taskHolderName: string;
+}
+
+export type SyncStatus = 'ready' | 'unmapped' | 'unavailable' | 'heimatOnly';
+
+export interface SyncRow {
+  taskId: number | null;
+  taskName: string;
+  taskHolderName: string;
+  bookingHint: string;
+  isNoteOptional: boolean;
+  status: SyncStatus;
+  projectIds: number[];
+  intimeSeconds: number;
+  intimeNotes: string;
+  heimatSeconds: number;
+  heimatNotes: string;
+  existingTimeIds: number[];
+  suggestSync: boolean;
+}
+
+export interface SyncItem {
+  taskId: number;
+  minutes: number;
+  note: string;
+  existingTimeIds: number[];
+}
+
 export const DEFAULT_COLORS = {
   backgroundColor: '#1f2329',
   textColor: '#e8eaed',
@@ -75,7 +123,18 @@ export const api = {
   exportData: (path: string) => invoke<void>('export_data', { path }),
   importData: (path: string) => invoke<void>('import_data', { path }),
 
-  openWindow: (view: 'report' | 'settings' | 'project', id: number | null = null) =>
+  heimatConfig: () => invoke<HeimatConfig>('heimat_get_config'),
+  saveHeimatConfig: (config: HeimatConfig) => invoke<void>('heimat_save_config', { config }),
+  testHeimat: (config: HeimatConfig) => invoke<number>('heimat_test', { config }),
+  heimatTasks: () => invoke<HeimatTask[]>('heimat_tasks'),
+  heimatMappings: () => invoke<HeimatMapping[]>('heimat_get_mappings'),
+  saveHeimatMappings: (mappings: HeimatMapping[]) => invoke<void>('heimat_save_mappings', { mappings }),
+  importHeimatTasks: (tasks: HeimatTask[]) => invoke<void>('heimat_import_tasks', { tasks }),
+  heimatDay: (date: string) => invoke<SyncRow[]>('heimat_day', { date }),
+  heimatSync: (date: string, items: SyncItem[]) =>
+    invoke<{ taskId: number; error: string | null }[]>('heimat_sync', { date, items }),
+
+  openWindow: (view: 'report' | 'settings' | 'project' | 'heimat', id: number | null = null) =>
     invoke<void>('open_window', { view, id }),
   quit: () => invoke<void>('quit_app'),
 };

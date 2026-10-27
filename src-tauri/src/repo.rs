@@ -2,7 +2,9 @@ use chrono::{Duration, Local, NaiveDate, NaiveDateTime, Timelike};
 use rusqlite::{Connection, OptionalExtension, Row, params};
 
 use crate::error::{Error, Result};
-use crate::models::{Current, ExportData, Project, ProjectInput, ProjectTime, Settings, Work, WorkInput};
+use crate::models::{
+    Current, ExportData, HeimatConfig, HeimatMapping, Project, ProjectInput, ProjectTime, Settings, Work, WorkInput,
+};
 
 pub const DT_FMT: &str = "%Y-%m-%dT%H:%M:%S";
 
@@ -123,6 +125,7 @@ pub fn delete_project(conn: &Connection, id: i64) -> Result<()> {
         return Err(Error::msg("Das Standardprojekt kann nicht gelöscht werden."));
     }
     conn.execute("UPDATE project SET is_enabled = 0, is_default = 0 WHERE id = ?1", [id])?;
+    conn.execute("DELETE FROM heimat_mapping WHERE project_id = ?1", [id])?;
     if active_work(conn)?.is_some_and(|w| w.project_id == id) {
         let default_id = default_project_id(conn)?;
         switch_project(conn, default_id, None, 0)?;
@@ -367,6 +370,7 @@ pub fn export(conn: &Connection) -> Result<ExportData> {
         projects: projects(conn, true)?,
         works,
         settings: settings(conn)?,
+        heimat_mappings: heimat_mappings(conn)?,
     })
 }
 
@@ -377,6 +381,7 @@ pub fn import(conn: &Connection, data: &ExportData) -> Result<()> {
     }
     let tx = conn.unchecked_transaction()?;
     tx.execute("DELETE FROM work", [])?;
+    tx.execute("DELETE FROM heimat_mapping", [])?;
     tx.execute("DELETE FROM project", [])?;
     for p in &data.projects {
         tx.execute(
@@ -391,7 +396,53 @@ pub fn import(conn: &Connection, data: &ExportData) -> Result<()> {
         )?;
     }
     save_settings(&tx, &data.settings)?;
+    insert_heimat_mappings(&tx, &data.heimat_mappings)?;
     tx.commit()?;
+    Ok(())
+}
+
+// ---------------------------------------------------------------- Heimat
+
+pub fn heimat_config(conn: &Connection) -> Result<HeimatConfig> {
+    let value: Option<String> =
+        conn.query_row("SELECT value FROM setting WHERE key = 'heimat'", [], |r| r.get(0)).optional()?;
+    Ok(value.and_then(|v| serde_json::from_str(&v).ok()).unwrap_or_default())
+}
+
+pub fn save_heimat_config(conn: &Connection, config: &HeimatConfig) -> Result<()> {
+    let config = HeimatConfig { url: config.url.trim().trim_end_matches('/').to_string(), token: config.token.trim().to_string() };
+    set_value(conn, "heimat", &serde_json::to_string(&config)?)
+}
+
+pub fn heimat_mappings(conn: &Connection) -> Result<Vec<HeimatMapping>> {
+    let mut stmt = conn.prepare(
+        "SELECT m.project_id, m.task_id, m.task_name, m.task_holder_name
+         FROM heimat_mapping m JOIN project p ON p.id = m.project_id ORDER BY p.sort_index, p.id",
+    )?;
+    let rows = stmt
+        .query_map([], |r| {
+            Ok(HeimatMapping { project_id: r.get(0)?, task_id: r.get(1)?, task_name: r.get(2)?, task_holder_name: r.get(3)? })
+        })?
+        .collect::<rusqlite::Result<Vec<_>>>()?;
+    Ok(rows)
+}
+
+/// Replaces all mappings; projects missing from `mappings` are no longer mapped.
+pub fn replace_heimat_mappings(conn: &Connection, mappings: &[HeimatMapping]) -> Result<()> {
+    let tx = conn.unchecked_transaction()?;
+    tx.execute("DELETE FROM heimat_mapping", [])?;
+    insert_heimat_mappings(&tx, mappings)?;
+    tx.commit()?;
+    Ok(())
+}
+
+pub fn insert_heimat_mappings(conn: &Connection, mappings: &[HeimatMapping]) -> Result<()> {
+    for m in mappings {
+        conn.execute(
+            "INSERT OR REPLACE INTO heimat_mapping (project_id, task_id, task_name, task_holder_name) VALUES (?1, ?2, ?3, ?4)",
+            params![m.project_id, m.task_id, m.task_name, m.task_holder_name],
+        )?;
+    }
     Ok(())
 }
 

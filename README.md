@@ -13,10 +13,11 @@ InTime zeigt dir in einem kleinen Fenster, woran du gerade arbeitest und wie lan
 - [Was InTime kann](#was-intime-kann)
 - [Installation](#installation)
 - [So benutzt du InTime](#so-benutzt-du-intime)
+- [Heimat-Anbindung](#heimat-anbindung)
 - [Einstellungen](#einstellungen)
 - [Deine Daten](#deine-daten)
 - [Häufige Fragen](#häufige-fragen)
-- [Geplant für Version 2](#geplant-für-version-2)
+- [Geplant](#geplant)
 - [Für Entwickler](#für-entwickler)
 
 ---
@@ -30,6 +31,7 @@ InTime zeigt dir in einem kleinen Fenster, woran du gerade arbeitest und wie lan
 - 📊 **Tagesbericht** mit Kalender, farbiger Zeitleiste und Summen pro Projekt
 - ✏️ **Einträge nachträglich bearbeiten**, löschen oder hinzufügen
 - 📋 **Zusammenfassung kopieren** – zum Einfügen in Mails, Tickets oder Zeiterfassungssysteme
+- 🔗 **Heimat-Anbindung** – Projekte aus Heimat übernehmen und Tageszeiten mit einem Klick übertragen
 - 💾 **Automatisches Speichern** alle 15 Sekunden – auch bei einem Absturz geht praktisch nichts verloren
 - 🎨 **Anpassbare Farben** und Layout
 - 📦 **Export und Import** deiner Daten als JSON-Datei
@@ -67,6 +69,14 @@ Einfach denselben Befehl noch einmal ausführen. Eine laufende InTime wird dabei
 
 ### Deinstallieren
 
+Wie die Installation – PowerShell öffnen und einfügen:
+
+```powershell
+irm https://github.com/admirschwab/InTime/releases/latest/download/uninstall.ps1 | iex
+```
+
+Alternativ ohne Befehl:
+
 - **Startmenü → InTime → InTime deinstallieren**, oder
 - **Einstellungen → Apps → Installierte Apps → InTime → Deinstallieren**
 
@@ -83,8 +93,8 @@ Der Uninstaller fragt, ob auch deine **Daten** gelöscht werden sollen. Vorgabe 
 & ([scriptblock]::Create((irm https://github.com/admirschwab/InTime/releases/latest/download/install.ps1))) -Silent -Autostart -DesktopShortcut
 
 # Ohne Rückfragen deinstallieren (Daten bleiben erhalten bzw. mit -RemoveData alles löschen)
-powershell -NoProfile -ExecutionPolicy Bypass -File "$env:LOCALAPPDATA\InTime\uninstall.ps1" -Silent
-powershell -NoProfile -ExecutionPolicy Bypass -File "$env:LOCALAPPDATA\InTime\uninstall.ps1" -Silent -RemoveData
+& ([scriptblock]::Create((irm https://github.com/admirschwab/InTime/releases/latest/download/uninstall.ps1))) -Silent
+& ([scriptblock]::Create((irm https://github.com/admirschwab/InTime/releases/latest/download/uninstall.ps1))) -Silent -RemoveData
 ```
 
 </details>
@@ -154,6 +164,38 @@ Der gerade laufende Eintrag ist mit **läuft** markiert und kann erst bearbeitet
 
 ---
 
+## Heimat-Anbindung
+
+InTime kann deine erfasste Arbeitszeit direkt nach [Heimat](https://heimat-software.com/) übertragen. InTime schreibt **nur** dann in Heimat, wenn du im Bericht auf **Übertragen** klickst.
+
+### 1. Verbinden
+
+1. Öffne **Einstellungen → Heimat API**.
+2. Trage die **Heimat-URL** ein – die Adresse, unter der du Heimat im Browser öffnest (z. B. `https://heimat.deine-firma.de`).
+3. Erstelle in Heimat ein persönliches **Zugangstoken** und füge es ein. InTime zeigt dir an, bis wann es gültig ist.
+4. Klicke auf **Verbindung testen** und dann auf **Speichern**.
+
+### 2. Projekte zuordnen
+
+Klicke in den Heimat-Einstellungen auf **Zuordnung öffnen**:
+
+- Wähle für jedes InTime-Projekt die passende **Heimat-Aufgabe**. Mehrere Projekte dürfen dieselbe Aufgabe nutzen – ihre Zeiten werden zusammengezählt.
+- Oder hake unten Heimat-Aufgaben an und klicke auf **… als Projekt anlegen** – InTime erstellt dann passende Projekte, die bereits zugeordnet sind.
+
+Projekte ohne Zuordnung und Projekte, die nicht als Arbeitszeit zählen (z. B. Pause), werden nie übertragen.
+
+### 3. Einen Tag übertragen
+
+1. Öffne den **Bericht** für den gewünschten Tag und klicke auf **Heimat**.
+2. Du siehst pro Heimat-Aufgabe, was in **InTime** erfasst und was in **Heimat** schon gebucht ist.
+3. Passe bei Bedarf die **Zeit** (in 15-Minuten-Schritten, wie Heimat es verlangt) und die **Notiz** an. Vorausgewählt ist alles, was in Heimat fehlt oder um mindestens 15 Minuten abweicht.
+4. Klicke auf **Übertragen**. Schon vorhandene Buchungen auf derselben Aufgabe an diesem Tag werden dabei ersetzt.
+5. Mit **In Heimat öffnen ↗** prüfst du das Ergebnis direkt in Heimat.
+
+> Aufgaben, die in Heimat eine Start- und Endzeit verlangen, werden nicht unterstützt – InTime bucht nur Dauern.
+
+---
+
 ## Einstellungen
 
 Über ⚙ im Hauptfenster:
@@ -163,7 +205,7 @@ Der gerade laufende Eintrag ist mit **läuft** markiert und kann erst bearbeitet
 | **Farben** | Hintergrund, Text und Hover-Farben – jederzeit auf Standard zurücksetzbar |
 | **Darstellung** | Projektliste rechts statt links · Liste ausblenden, wenn die Maus das Fenster verlässt · Fensterposition merken |
 | **Verhalten** | Beim Wechseln nach einer Notiz fragen (optional nur bei Arbeitsprojekten) · Vor dem Beenden nachfragen |
-| **Heimat API** | Kommt in Version 2 |
+| **Heimat API** | Verbindung zu Heimat und Zuordnung der Projekte – siehe [Heimat-Anbindung](#heimat-anbindung) |
 | **Daten** | Export und Import |
 
 ---
@@ -183,7 +225,7 @@ Der gerade laufende Eintrag ist mit **läuft** markiert und kann erst bearbeitet
   ├── logs\             Protokolldateien (hilfreich bei Fehlern)
   └── webview\          Zwischenspeicher der Oberfläche
   ```
-- **Backup:** Einstellungen → Daten → **Exportieren** erzeugt eine JSON-Datei.
+- **Backup:** Einstellungen → Daten → **Exportieren** erzeugt eine JSON-Datei. Dein Heimat-Zugangstoken ist darin bewusst **nicht** enthalten.
 - **Wiederherstellen:** Einstellungen → Daten → **Importieren**. ⚠️ Dabei werden *alle* aktuellen Daten ersetzt.
 - Bei Updates von InTime bleiben deine Daten automatisch erhalten.
 
@@ -205,9 +247,8 @@ Das Standardprojekt kann nicht gelöscht werden. Markiere zuerst ein anderes Pro
 
 ---
 
-## Geplant für Version 2
+## Geplant
 
-- 🔗 **Heimat-Anbindung** – Projekte importieren und Zeiten übertragen
 - ⌨️ **Globales Tastenkürzel** – Projekt wechseln, ohne das Fenster zu suchen
 - 🌐 **REST-API** für eigene Automatisierungen
 
@@ -250,6 +291,7 @@ src-tauri/              Backend (Rust)
   src/windows.rs        Fenster und Tray-Symbol
   src/indicator.rs      Projektfarbe in Tray und Taskleiste
   src/paths.rs          Speicherorte unter %LOCALAPPDATA%\InTime
+  src/heimat.rs         Heimat-API-Client und Tagesabgleich (inkl. Tests)
 installer/              PowerShell-Installer und -Uninstaller
 scripts/package.mjs     Packt Exe und Uninstaller zur Release-ZIP
 .github/workflows/      CI und automatische Releases

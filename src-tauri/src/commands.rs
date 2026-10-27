@@ -3,7 +3,11 @@ use tauri::{AppHandle, Emitter, State};
 
 use crate::AppState;
 use crate::error::{Error, Result};
-use crate::models::{Current, ExportData, Project, ProjectInput, Settings, Work, WorkInput};
+use crate::heimat::{self, HeimatClient};
+use crate::models::{
+    Current, ExportData, HeimatConfig, HeimatMapping, HeimatTask, HeimatTime, Project, ProjectInput, Settings,
+    SyncItem, SyncResult, SyncRow, Work, WorkInput,
+};
 use crate::{indicator, repo, windows};
 
 /// Tells all windows to reload their data and updates the tray/taskbar color.
@@ -144,4 +148,140 @@ pub async fn open_window(app: AppHandle, view: String, id: Option<i64>) -> Resul
 #[tauri::command]
 pub fn quit_app(app: AppHandle) {
     app.exit(0);
+}
+
+// ---------------------------------------------------------------- Heimat
+
+/// Colors for projects imported from Heimat, used in turn.
+const IMPORT_COLORS: &[&str] = &[
+    "#4c8bf5", "#57ab5a", "#f0883e", "#8f6ff5", "#2ea0a0", "#d062b8", "#d4a72c", "#e5534b",
+];
+
+fn heimat_client(state: &State<'_, AppState>) -> Result<HeimatClient> {
+    HeimatClient::new(&repo::heimat_config(&state.db.lock().unwrap())?)
+}
+
+#[tauri::command]
+pub fn heimat_get_config(state: State<AppState>) -> Result<HeimatConfig> {
+    repo::heimat_config(&state.db.lock().unwrap())
+}
+
+#[tauri::command]
+pub fn heimat_save_config(app: AppHandle, state: State<AppState>, config: HeimatConfig) -> Result<()> {
+    repo::save_heimat_config(&state.db.lock().unwrap(), &config)?;
+    let _ = app.emit("heimat-changed", ());
+    Ok(())
+}
+
+/// Checks URL and token without saving them; returns the number of bookable tasks.
+#[tauri::command]
+pub async fn heimat_test(config: HeimatConfig) -> Result<usize> {
+    let tasks = HeimatClient::new(&config)?.tasks(None).await?;
+    Ok(heimat::bookable_tasks(tasks).len())
+}
+
+#[tauri::command]
+pub async fn heimat_tasks(state: State<'_, AppState>) -> Result<Vec<HeimatTask>> {
+    let client = heimat_client(&state)?;
+    Ok(heimat::bookable_tasks(client.tasks(None).await?))
+}
+
+#[tauri::command]
+pub fn heimat_get_mappings(state: State<AppState>) -> Result<Vec<HeimatMapping>> {
+    repo::heimat_mappings(&state.db.lock().unwrap())
+}
+
+#[tauri::command]
+pub fn heimat_save_mappings(app: AppHandle, state: State<AppState>, mappings: Vec<HeimatMapping>) -> Result<()> {
+    repo::replace_heimat_mappings(&state.db.lock().unwrap(), &mappings)?;
+    notify(&app);
+    Ok(())
+}
+
+/// Creates one work project per Heimat task, already mapped to that task.
+#[tauri::command]
+pub fn heimat_import_tasks(app: AppHandle, state: State<AppState>, tasks: Vec<HeimatTask>) -> Result<()> {
+    {
+        let conn = state.db.lock().unwrap();
+        let tx = conn.unchecked_transaction()?;
+        for (i, task) in tasks.iter().enumerate() {
+            let description = match task.booking_hint.as_deref().map(str::trim) {
+                Some(hint) if !hint.is_empty() => format!("{}\n{hint}", task.task_holder_name),
+                _ => task.task_holder_name.clone(),
+            };
+            let input = ProjectInput {
+                name: task.name.clone(),
+                description,
+                color: IMPORT_COLORS[i % IMPORT_COLORS.len()].into(),
+                is_work: true,
+                is_default: false,
+            };
+            let project = repo::create_project(&tx, &input)?;
+            repo::insert_heimat_mappings(
+                &tx,
+                &[HeimatMapping {
+                    project_id: project.id,
+                    task_id: task.id,
+                    task_name: task.name.clone(),
+                    task_holder_name: task.task_holder_name.clone(),
+                }],
+            )?;
+        }
+        tx.commit()?;
+    }
+    notify(&app);
+    Ok(())
+}
+
+/// Compares the day's InTime work with what is already booked in Heimat.
+#[tauri::command]
+pub async fn heimat_day(state: State<'_, AppState>, date: String) -> Result<Vec<SyncRow>> {
+    let date = parse_date(&date)?;
+    let (client, works, projects, mappings) = {
+        let conn = state.db.lock().unwrap();
+        (
+            HeimatClient::new(&repo::heimat_config(&conn)?)?,
+            repo::works_for_day(&conn, date)?,
+            repo::projects(&conn, true)?,
+            repo::heimat_mappings(&conn)?,
+        )
+    };
+    let tasks = heimat::bookable_tasks(client.tasks(Some(date)).await?);
+    let times = client.times(Some(date)).await?;
+    heimat::day_overview(&works, &projects, &mappings, &tasks, &times, repo::now())
+}
+
+/// Books the given durations in Heimat. Times already booked on the same task for the
+/// day are replaced. Each item succeeds or fails on its own.
+#[tauri::command]
+pub async fn heimat_sync(state: State<'_, AppState>, date: String, items: Vec<SyncItem>) -> Result<Vec<SyncResult>> {
+    let date = parse_date(&date)?;
+    let client = heimat_client(&state)?;
+    let mut results = Vec::new();
+    for item in items {
+        let outcome = async {
+            if item.minutes <= 0 || item.minutes % 15 != 0 {
+                return Err(Error::msg("Heimat erlaubt nur Zeiten in 15-Minuten-Schritten (mindestens 0:15)."));
+            }
+            for id in &item.existing_time_ids {
+                client.delete_time(*id).await?;
+            }
+            let time = HeimatTime {
+                id: 0,
+                task_id: item.task_id,
+                date: date.format("%Y-%m-%d").to_string(),
+                start: None,
+                end: None,
+                duration_in_minutes: item.minutes,
+                note: Some(item.note.trim().to_string()),
+            };
+            client.add_time(&time).await
+        }
+        .await;
+        if let Err(e) = &outcome {
+            log::error!("Heimat-Übertragung für Aufgabe {} fehlgeschlagen: {e}", item.task_id);
+        }
+        results.push(SyncResult { task_id: item.task_id, error: outcome.err().map(|e| e.to_string()) });
+    }
+    Ok(results)
 }

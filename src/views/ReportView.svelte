@@ -1,8 +1,10 @@
 <script lang="ts">
-  import { api, errorText, onDataChanged, subscribe, type Project, type Work } from '../lib/api';
+  import { listen } from '@tauri-apps/api/event';
+  import { api, errorText, onDataChanged, subscribe, type HeimatConfig, type Project, type Work } from '../lib/api';
   import { addDays, clockTime, dateKey, duration, longDate, parseTime, shortDate, startOfDay } from '../lib/format';
   import Calendar from '../components/Calendar.svelte';
   import Dialog from '../components/Dialog.svelte';
+  import HeimatSyncDialog from '../components/HeimatSyncDialog.svelte';
   import Icon from '../components/Icon.svelte';
   import Timeline from '../components/Timeline.svelte';
   import WorkDialog from '../components/WorkDialog.svelte';
@@ -30,6 +32,8 @@
   let now = $state(Date.now());
   let editing = $state<{ work: Work | null } | null>(null);
   let deleting = $state<Work | null>(null);
+  let heimat = $state<HeimatConfig | null>(null);
+  let syncing = $state(false);
   let message = $state('');
   let messageTimer: ReturnType<typeof setTimeout> | undefined;
 
@@ -112,9 +116,13 @@
         loadMarked();
       }),
     );
+    const loadHeimat = () => api.heimatConfig().then((c) => (heimat = c.url && c.token ? c : null));
+    loadHeimat();
+    const unlistenHeimat = subscribe(listen('heimat-changed', loadHeimat));
     return () => {
       clearInterval(tick);
       unlisten();
+      unlistenHeimat();
     };
   });
 
@@ -236,6 +244,11 @@
         <button class="btn primary" onclick={() => (editing = { work: null })}>
           <Icon name="plus" size={14} /> Eintrag
         </button>
+        {#if heimat}
+          <button class="btn" onclick={() => (syncing = true)} title="Zeiten dieses Tages nach Heimat übertragen">
+            <Icon name="upload" size={14} /> Heimat
+          </button>
+        {/if}
       </div>
     </header>
 
@@ -297,6 +310,10 @@
     {/if}
   </main>
 </div>
+
+{#if syncing && heimat}
+  <HeimatSyncDialog {date} {projects} heimatUrl={heimat.url} onclose={() => (syncing = false)} />
+{/if}
 
 {#if editing}
   <WorkDialog work={editing.work} {date} {projects} onclose={() => (editing = null)} />

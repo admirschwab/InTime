@@ -1,6 +1,7 @@
 # Builds InTime on Windows and publishes a GitHub Release when a version tag is pushed:
 #   git tag v0.1.1 && git push origin v0.1.1
-# The release contains InTime-windows.zip (app + uninstaller) and install.ps1 (web installer).
+# The release contains InTime-windows.zip (app + uninstaller) and install.ps1 / uninstall.ps1
+# (web installer and uninstaller for "irm | iex").
 # Can also be started manually (Actions > Release > Run workflow); then the ZIP is only
 # attached to the workflow run as an artifact.
 name: Release
@@ -62,4 +63,5 @@ jobs:
           files: |
             release/InTime-windows.zip
             installer/install.ps1
+            installer/uninstall.ps1
           generate_release_notes: true
