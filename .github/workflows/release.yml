@@ -1,0 +1,65 @@
+# Builds InTime on Windows and publishes a GitHub Release when a version tag is pushed:
+#   git tag v0.1.1 && git push origin v0.1.1
+# The release contains InTime-windows.zip (app + uninstaller) and install.ps1 (web installer).
+# Can also be started manually (Actions > Release > Run workflow); then the ZIP is only
+# attached to the workflow run as an artifact.
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - name: Check tag matches app version
+        if: startsWith(github.ref, 'refs/tags/')
+        shell: pwsh
+        run: |
+          $version = (Get-Content package.json -Raw | ConvertFrom-Json).version
+          if ("v$version" -ne "${{ github.ref_name }}") {
+            throw "Tag ${{ github.ref_name }} passt nicht zur Version $version in package.json."
+          }
+
+      - run: npm ci
+      - run: npm run check
+      - run: npm run build
+
+      - name: Backend tests
+        run: cargo test
+        working-directory: src-tauri
+
+      - name: Build and package
+        run: npm run package
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: InTime-windows
+          path: release/InTime-windows.zip
+
+      - name: Publish GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            release/InTime-windows.zip
+            installer/install.ps1
+          generate_release_notes: true

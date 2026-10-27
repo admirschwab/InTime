@@ -39,27 +39,55 @@ InTime zeigt dir in einem kleinen Fenster, woran du gerade arbeitest und wie lan
 
 ## Installation
 
-> **Voraussetzung:** Windows 10 oder 11.
+> **Voraussetzung:** Windows 10 oder 11. Administratorrechte sind **nicht** nötig.
 
-### Variante A: Fertiges Installationsprogramm *(empfohlen)*
+### Installieren
 
-1. Öffne die Seite [**Releases**](../../releases) dieses Repositories.
-2. Lade die Datei `InTime_x.y.z_x64-setup.exe` herunter.
-3. Starte die Datei und folge dem Installationsassistenten.
-4. InTime findest du danach im Startmenü.
+1. Öffne **PowerShell**: Drücke die `Windows`-Taste, tippe `PowerShell` und drücke Enter.
+2. Kopiere diesen Befehl hinein und drücke Enter:
 
-> Windows zeigt eventuell eine Warnung („Der Computer wurde durch Windows geschützt“), weil das Programm nicht signiert ist. Klicke auf **Weitere Informationen → Trotzdem ausführen**.
+   ```powershell
+   irm https://github.com/admirschwab/InTime/releases/latest/download/install.ps1 | iex
+   ```
 
-### Variante B: Selbst bauen
+3. Beantworte die Fragen mit `j` (ja) oder `n` (nein) – oder drücke einfach Enter für die Vorgabe:
+   - Verknüpfung auf dem Desktop anlegen? *(Vorgabe: nein)*
+   - InTime beim Windows-Start automatisch öffnen? *(Vorgabe: ja)*
+   - InTime jetzt starten? *(Vorgabe: ja)*
 
-Siehe [Für Entwickler](#für-entwickler).
+Fertig! InTime findest du ab jetzt im **Startmenü**.
 
-### Tipp: Automatisch beim Windows-Start öffnen
+Der Installer lädt die neueste Version von GitHub, legt alles in **`%LOCALAPPDATA%\InTime`** ab und trägt InTime unter *Einstellungen → Apps → Installierte Apps* ein.
 
-Damit du das Erfassen nicht vergisst:
+> 💡 `irm` lädt das Installationsskript herunter, `iex` führt es aus. Du kannst dir das Skript vorher ansehen: [`installer/install.ps1`](installer/install.ps1).
 
-1. Drücke `Windows + R`, gib `shell:startup` ein und drücke Enter.
-2. Ziehe mit gedrückter rechter Maustaste eine Verknüpfung von InTime (aus dem Startmenü) in diesen Ordner.
+### Aktualisieren
+
+Einfach denselben Befehl noch einmal ausführen. Eine laufende InTime wird dabei sauber beendet – deine Daten bleiben erhalten.
+
+### Deinstallieren
+
+- **Startmenü → InTime → InTime deinstallieren**, oder
+- **Einstellungen → Apps → Installierte Apps → InTime → Deinstallieren**
+
+Der Uninstaller fragt, ob auch deine **Daten** gelöscht werden sollen. Vorgabe ist *nein* – dann bleiben Projekte und Zeiten erhalten und werden bei einer erneuten Installation automatisch wieder verwendet.
+
+<details>
+<summary><b>Für Fortgeschrittene: Optionen</b></summary>
+
+```powershell
+# Bestimmte Version installieren
+& ([scriptblock]::Create((irm https://github.com/admirschwab/InTime/releases/latest/download/install.ps1))) -Version 0.1.1
+
+# Ohne Rückfragen (nur die angegebenen Optionen werden umgesetzt)
+& ([scriptblock]::Create((irm https://github.com/admirschwab/InTime/releases/latest/download/install.ps1))) -Silent -Autostart -DesktopShortcut
+
+# Ohne Rückfragen deinstallieren (Daten bleiben erhalten bzw. mit -RemoveData alles löschen)
+powershell -NoProfile -ExecutionPolicy Bypass -File "$env:LOCALAPPDATA\InTime\uninstall.ps1" -Silent
+powershell -NoProfile -ExecutionPolicy Bypass -File "$env:LOCALAPPDATA\InTime\uninstall.ps1" -Silent -RemoveData
+```
+
+</details>
 
 ---
 
@@ -143,8 +171,18 @@ Der gerade laufende Eintrag ist mit **läuft** markiert und kann erst bearbeitet
 ## Deine Daten
 
 - Alles wird **lokal auf deinem PC** gespeichert – nichts wird ins Internet übertragen.
-- Speicherort: `%APPDATA%\app.intime.desktop\intime.db`
-  (Zum Öffnen `Windows + R` drücken und den Pfad ohne Dateinamen einfügen.)
+- Alles liegt in einem Ordner: **`%LOCALAPPDATA%\InTime`**
+  (Zum Öffnen `Windows + R` drücken, den Pfad einfügen und Enter drücken.)
+
+  ```
+  %LOCALAPPDATA%\InTime\
+  ├── InTime.exe        Programm
+  ├── uninstall.ps1     Uninstaller
+  ├── install.json      Infos zur Installation (Version, Datum, Verknüpfungen)
+  ├── data\intime.db    deine Projekte, Zeiten und Einstellungen
+  ├── logs\             Protokolldateien (hilfreich bei Fehlern)
+  └── webview\          Zwischenspeicher der Oberfläche
+  ```
 - **Backup:** Einstellungen → Daten → **Exportieren** erzeugt eine JSON-Datei.
 - **Wiederherstellen:** Einstellungen → Daten → **Importieren**. ⚠️ Dabei werden *alle* aktuellen Daten ersetzt.
 - Bei Updates von InTime bleiben deine Daten automatisch erhalten.
@@ -193,7 +231,7 @@ InTime basiert auf [Tauri 2](https://tauri.app) (Rust) mit einer Oberfläche in 
 ```bash
 npm install            # Abhängigkeiten installieren
 npm run tauri dev      # App im Entwicklungsmodus starten (erster Start dauert einige Minuten)
-npm run tauri build    # Installer bauen → src-tauri/target/release/bundle/nsis/
+npm run package        # Release-ZIP lokal bauen → release/InTime-windows.zip
 npm run check          # TypeScript/Svelte prüfen
 cd src-tauri && cargo test   # Backend-Tests
 ```
@@ -211,4 +249,22 @@ src-tauri/              Backend (Rust)
   src/commands.rs       Schnittstelle zur Oberfläche
   src/windows.rs        Fenster und Tray-Symbol
   src/indicator.rs      Projektfarbe in Tray und Taskleiste
+  src/paths.rs          Speicherorte unter %LOCALAPPDATA%\InTime
+installer/              PowerShell-Installer und -Uninstaller
+scripts/package.mjs     Packt Exe und Uninstaller zur Release-ZIP
+.github/workflows/      CI und automatische Releases
 ```
+
+### Ein Release veröffentlichen
+
+Releases baut **GitHub Actions** automatisch ([`.github/workflows/release.yml`](.github/workflows/release.yml)):
+
+1. Version in `package.json`, `src-tauri/Cargo.toml` und `src-tauri/tauri.conf.json` erhöhen und committen.
+2. Tag anlegen und pushen:
+   ```bash
+   git tag v0.1.1
+   git push origin v0.1.1
+   ```
+3. Nach ca. 10 Minuten steht unter **Releases** die neue Version mit `InTime-windows.zip` und `install.ps1` – der Installationsbefehl liefert ab dann automatisch diese Version.
+
+Zusätzlich prüft [`ci.yml`](.github/workflows/ci.yml) bei jedem Push auf `main` und jedem Pull Request Typen und Tests.

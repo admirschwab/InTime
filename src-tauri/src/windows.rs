@@ -5,7 +5,7 @@ use tauri::{AppHandle, Manager, PhysicalPosition, WebviewUrl, WebviewWindowBuild
 use crate::AppState;
 use crate::error::{Error, Result};
 use crate::indicator::{TRAY_ID, circle_icon};
-use crate::repo;
+use crate::{paths, repo};
 
 /// Opens (or focuses) a secondary window. All windows load the same frontend;
 /// the view to render is passed via `window.__INTIME__`.
@@ -34,12 +34,29 @@ pub fn open(app: &AppHandle, view: &str, id: Option<i64>) -> Result<()> {
         .inner_size(width, height)
         .min_inner_size(400.0, 400.0)
         .center()
+        .data_directory(paths::webview_dir())
         .initialization_script(&init);
     // Owned by the always-on-top main window, so Windows keeps it above the main window.
     if let Some(main) = app.get_webview_window("main") {
         builder = builder.parent(&main)?;
     }
     builder.build()?;
+    Ok(())
+}
+
+/// The small always-on-top tracker window. Created in code (not tauri.conf.json)
+/// so its WebView data goes to `%LOCALAPPDATA%\InTime\webview`.
+pub fn create_main(app: &AppHandle) -> Result<()> {
+    WebviewWindowBuilder::new(app, "main", WebviewUrl::App("index.html".into()))
+        .title("InTime")
+        .inner_size(540.0, 320.0)
+        .resizable(false)
+        .maximizable(false)
+        .decorations(false)
+        .always_on_top(true)
+        .center()
+        .data_directory(paths::webview_dir())
+        .build()?;
     Ok(())
 }
 

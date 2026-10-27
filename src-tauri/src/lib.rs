@@ -3,6 +3,7 @@ mod db;
 mod error;
 mod indicator;
 mod models;
+mod paths;
 mod repo;
 mod windows;
 
@@ -10,6 +11,7 @@ use std::sync::Mutex;
 use std::time::Duration;
 
 use tauri::{AppHandle, Emitter, Manager, RunEvent, WindowEvent};
+use tauri_plugin_log::{Target, TargetKind};
 
 const AUTOSAVE_INTERVAL: Duration = Duration::from_secs(15);
 
@@ -44,15 +46,31 @@ fn start_autosave(app: AppHandle) {
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
-        .plugin(tauri_plugin_log::Builder::default().level(log::LevelFilter::Info).build())
+        .plugin(
+            tauri_plugin_log::Builder::default()
+                .level(log::LevelFilter::Info)
+                .clear_targets()
+                .targets([
+                    Target::new(TargetKind::Stdout),
+                    Target::new(TargetKind::Folder { path: paths::logs_dir(), file_name: Some("intime".into()) }),
+                ])
+                .build(),
+        )
         .setup(|app| {
-            let dir = app.path().app_data_dir()?;
-            std::fs::create_dir_all(&dir)?;
-            let conn = db::open(&dir.join("intime.db"))?;
+            let data_dir = paths::data_dir();
+            std::fs::create_dir_all(&data_dir)?;
+            let db_path = data_dir.join("intime.db");
+            if let Ok(legacy_dir) = app.path().app_data_dir() {
+                if let Err(e) = paths::migrate_legacy_db(&legacy_dir, &db_path) {
+                    log::error!("Alte Datenbank konnte nicht übernommen werden: {e}");
+                }
+            }
+            let conn = db::open(&db_path)?;
             repo::recover_and_start(&conn)?;
             app.manage(AppState { db: Mutex::new(conn), main_position: Mutex::new(None) });
 
             let handle = app.handle();
+            windows::create_main(handle)?;
             windows::create_tray(handle)?;
             windows::restore_main_position(handle)?;
             indicator::refresh(handle);
