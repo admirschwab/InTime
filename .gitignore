@@ -1,0 +1,20 @@
+# Dependencies & build output
+node_modules
+dist
+dist-ssr
+*.local
+
+# Rust / Tauri (src-tauri/.gitignore covers target and gen/schemas)
+
+# Logs
+logs
+*.log
+npm-debug.log*
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.sw?
