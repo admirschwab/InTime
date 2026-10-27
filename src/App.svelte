@@ -5,11 +5,17 @@
   import SettingsView from './views/SettingsView.svelte';
   import ProjectView from './views/ProjectView.svelte';
   import HeimatView from './views/HeimatView.svelte';
+  import type { IconName } from './components/Icon.svelte';
+  import { setWindowIcon } from './lib/windowIcon';
 
   // Set by the backend for secondary windows (see windows.rs); the main window has none.
   const ctx: { view: string; id: number | null } = (window as any).__INTIME__ ?? { view: 'main', id: null };
 
   initSettings();
+
+  // The main window shows the active project's color instead (see indicator.rs).
+  const viewIcons: Record<string, IconName> = { report: 'report', settings: 'settings', project: 'edit', heimat: 'upload' };
+  if (viewIcons[ctx.view]) setWindowIcon(viewIcons[ctx.view]).catch(() => {});
 
   // Prevent the WebView's own context menu and page reloads from feeling like a browser.
   window.addEventListener('contextmenu', (e) => {

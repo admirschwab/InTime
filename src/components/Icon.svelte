@@ -21,6 +21,7 @@
     upload: 'M12 20V9M7 14l5-5 5 5M4 4h16',
   };
   export type IconName = keyof typeof paths;
+  export const iconPaths: Record<IconName, string> = paths;
 </script>
 
 <script lang="ts">
