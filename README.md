@@ -87,7 +87,7 @@ Der Uninstaller fragt, ob auch deine **Daten** gelöscht werden sollen. Vorgabe 
 
 ```powershell
 # Bestimmte Version installieren
-& ([scriptblock]::Create((irm https://github.com/admirschwab/InTime/releases/latest/download/install.ps1))) -Version 0.1.1
+& ([scriptblock]::Create((irm https://github.com/admirschwab/InTime/releases/latest/download/install.ps1))) -Version 0.2.0
 
 # Ohne Rückfragen (nur die angegebenen Optionen werden umgesetzt)
 & ([scriptblock]::Create((irm https://github.com/admirschwab/InTime/releases/latest/download/install.ps1))) -Silent -Autostart -DesktopShortcut
@@ -281,7 +281,7 @@ cd src-tauri && cargo test   # Backend-Tests
 
 ```
 src/                    Oberfläche (Svelte)
-  views/                Fenster: Haupt, Bericht, Einstellungen, Projekt
+  views/                Fenster: Haupt, Bericht, Einstellungen, Projekt, Heimat-Zuordnung
   components/           Kalender, Zeitleiste, Dialoge …
   lib/                  API-Aufrufe, Formatierung, Einstellungen
 src-tauri/              Backend (Rust)
@@ -294,19 +294,5 @@ src-tauri/              Backend (Rust)
   src/heimat.rs         Heimat-API-Client und Tagesabgleich (inkl. Tests)
 installer/              PowerShell-Installer und -Uninstaller
 scripts/package.mjs     Packt Exe und Uninstaller zur Release-ZIP
-.github/workflows/      CI und automatische Releases
+.github/workflows/      Automatische Prüfung und Builds
 ```
-
-### Ein Release veröffentlichen
-
-Releases baut **GitHub Actions** automatisch ([`.github/workflows/release.yml`](.github/workflows/release.yml)):
-
-1. Version in `package.json`, `src-tauri/Cargo.toml` und `src-tauri/tauri.conf.json` erhöhen und committen.
-2. Tag anlegen und pushen:
-   ```bash
-   git tag v0.1.1
-   git push origin v0.1.1
-   ```
-3. Nach ca. 10 Minuten steht unter **Releases** die neue Version mit `InTime-windows.zip` und `install.ps1` – der Installationsbefehl liefert ab dann automatisch diese Version.
-
-Zusätzlich prüft [`ci.yml`](.github/workflows/ci.yml) bei jedem Push auf `main` und jedem Pull Request Typen und Tests.
