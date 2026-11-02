@@ -11,7 +11,7 @@ use crate::models::{
 use crate::{indicator, repo, windows};
 
 /// Tells all windows to reload their data and updates the tray/taskbar color.
-fn notify(app: &AppHandle) {
+pub fn notify(app: &AppHandle) {
     let _ = app.emit("data-changed", ());
     indicator::refresh(app);
 }
@@ -143,6 +143,11 @@ pub fn import_data(app: AppHandle, state: State<AppState>, path: String) -> Resu
 #[tauri::command]
 pub async fn open_window(app: AppHandle, view: String, id: Option<i64>) -> Result<()> {
     windows::open(&app, &view, id)
+}
+
+#[tauri::command]
+pub async fn resize_main(app: AppHandle, width: f64, height: f64, anchor_right: bool) -> Result<()> {
+    windows::resize_main(&app, width, height, anchor_right)
 }
 
 #[tauri::command]

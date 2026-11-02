@@ -9,12 +9,15 @@ mod repo;
 mod windows;
 
 use std::sync::Mutex;
-use std::time::Duration;
+use std::time::{Duration, SystemTime};
 
+use chrono::NaiveDateTime;
 use tauri::{AppHandle, Emitter, Manager, RunEvent, WindowEvent};
 use tauri_plugin_log::{Target, TargetKind};
 
 const AUTOSAVE_INTERVAL: Duration = Duration::from_secs(15);
+/// A longer pause between two auto-saves means the PC was asleep or hibernating.
+const SUSPEND_GAP: Duration = Duration::from_secs(120);
 
 pub struct AppState {
     pub db: Mutex<rusqlite::Connection>,
@@ -24,28 +27,49 @@ pub struct AppState {
 
 /// Writes the running work's end time and the window position. Because this runs every
 /// few seconds, a crash or hard shutdown loses at most one interval.
-fn save_state(app: &AppHandle) {
+/// See `repo::autosave` for `suspended_since`.
+fn save_state(app: &AppHandle, suspended_since: Option<NaiveDateTime>) {
     let state = app.state::<AppState>();
     let position = *state.main_position.lock().unwrap();
-    let conn = state.db.lock().unwrap();
-    if let Err(e) = repo::autosave(&conn) {
-        log::error!("Auto-Save fehlgeschlagen: {e}");
-    }
-    if let Some(position) = position {
-        let _ = repo::save_window_position(&conn, position);
+    let changed = {
+        let conn = state.db.lock().unwrap();
+        if let Some(position) = position {
+            let _ = repo::save_window_position(&conn, position);
+        }
+        repo::autosave(&conn, repo::now(), suspended_since).unwrap_or_else(|e| {
+            log::error!("Auto-Save fehlgeschlagen: {e}");
+            false
+        })
+    };
+    if changed {
+        commands::notify(app);
     }
 }
 
 fn start_autosave(app: AppHandle) {
-    std::thread::spawn(move || loop {
-        std::thread::sleep(AUTOSAVE_INTERVAL);
-        save_state(&app);
+    std::thread::spawn(move || {
+        // Wall-clock time of the last save; system time keeps running while the PC sleeps.
+        let mut last = (SystemTime::now(), repo::now());
+        loop {
+            std::thread::sleep(AUTOSAVE_INTERVAL);
+            let now = SystemTime::now();
+            let gap = now.duration_since(last.0).unwrap_or_default();
+            let suspended_since = (gap > SUSPEND_GAP).then_some(last.1);
+            if let Some(since) = suspended_since {
+                log::info!("Ruhezustand seit {since} erkannt, laufender Eintrag endet dort.");
+            }
+            save_state(&app, suspended_since);
+            last = (now, repo::now());
+        }
     });
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        // Must come first: a second InTime would record times in parallel to the first one.
+        // Instead it exits and the running instance comes to the front.
+        .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| windows::show_main(app)))
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(
@@ -114,6 +138,7 @@ pub fn run() {
             commands::export_data,
             commands::import_data,
             commands::open_window,
+            commands::resize_main,
             commands::quit_app,
             commands::heimat_get_config,
             commands::heimat_save_config,
@@ -132,7 +157,7 @@ pub fn run() {
                 if app.try_state::<AppState>().is_none() {
                     return;
                 }
-                save_state(app);
+                save_state(app, None);
                 let state = app.state::<AppState>();
                 let conn = state.db.lock().unwrap();
                 if let Err(e) = repo::finish_active(&conn, repo::now(), None) {

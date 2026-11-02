@@ -1,6 +1,6 @@
 <script lang="ts">
   import { listen } from '@tauri-apps/api/event';
-  import { getCurrentWindow, LogicalSize, PhysicalPosition } from '@tauri-apps/api/window';
+  import { getCurrentWindow } from '@tauri-apps/api/window';
   import { api, errorText, onDataChanged, subscribe, type Current, type Project } from '../lib/api';
   import { duration, parseTime } from '../lib/format';
   import { settings } from '../lib/settings.svelte';
@@ -35,6 +35,7 @@
   let notesTimer: ReturnType<typeof setTimeout> | undefined;
   let errorTimer: ReturnType<typeof setTimeout> | undefined;
   let collapseTimer: ReturnType<typeof setTimeout> | undefined;
+  let resizing = Promise.resolve();
   let searchInput: HTMLInputElement | undefined = $state();
 
   const projects = $derived(allProjects.filter((p) => p.isEnabled));
@@ -176,16 +177,13 @@
     await api.quit();
   }
 
-  async function setCollapsed(value: boolean) {
+  function setCollapsed(value: boolean) {
     if (value === collapsed) return;
     collapsed = value;
-    // With the list on the left, keep the main panel in place by shifting the window.
-    if (!s.displayProjectsRight) {
-      const [factor, pos] = await Promise.all([win.scaleFactor(), win.outerPosition()]);
-      const dx = Math.round(LIST_WIDTH * factor) * (value ? 1 : -1);
-      await win.setPosition(new PhysicalPosition(pos.x + dx, pos.y));
-    }
-    await win.setSize(new LogicalSize(value ? MAIN_WIDTH : MAIN_WIDTH + LIST_WIDTH, HEIGHT));
+    // Resizes run one after another, so quick mouse movements cannot interleave them.
+    // With the list on the left, the right edge stays put and the main panel does not move.
+    const width = value ? MAIN_WIDTH : MAIN_WIDTH + LIST_WIDTH;
+    resizing = resizing.then(() => api.resizeMain(width, HEIGHT, !s.displayProjectsRight)).catch(showError);
   }
 
   function onMouseEnter() {

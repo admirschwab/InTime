@@ -61,6 +61,24 @@ pub fn create_main(app: &AppHandle) -> Result<()> {
     Ok(())
 }
 
+/// Sets the main window's inner size (logical pixels) in a single step. With `anchor_right`
+/// the right edge stays in place, so the time display does not move when the project list
+/// on the left is shown or hidden. Separate size and position calls showed the window
+/// jumping sideways in between.
+pub fn resize_main(app: &AppHandle, width: f64, height: f64, anchor_right: bool) -> Result<()> {
+    use ::windows::Win32::UI::WindowsAndMessaging::{SWP_NOACTIVATE, SWP_NOZORDER, SetWindowPos};
+
+    let window = app.get_webview_window("main").ok_or_else(|| Error::msg("Hauptfenster nicht gefunden."))?;
+    let scale = window.scale_factor()?;
+    let (pos, outer, inner) = (window.outer_position()?, window.outer_size()?, window.inner_size()?);
+    let new_width = (width * scale).round() as i32 + (outer.width - inner.width) as i32;
+    let new_height = (height * scale).round() as i32 + (outer.height - inner.height) as i32;
+    let x = if anchor_right { pos.x + outer.width as i32 - new_width } else { pos.x };
+    unsafe { SetWindowPos(window.hwnd()?, None, x, pos.y, new_width, new_height, SWP_NOZORDER | SWP_NOACTIVATE) }
+        .map_err(|e| Error::msg(format!("Fenstergröße konnte nicht geändert werden: {e}")))?;
+    Ok(())
+}
+
 pub fn show_main(app: &AppHandle) {
     if let Some(window) = app.get_webview_window("main") {
         let _ = window.unminimize();

@@ -136,6 +136,8 @@ export const api = {
 
   openWindow: (view: 'report' | 'settings' | 'project' | 'heimat', id: number | null = null) =>
     invoke<void>('open_window', { view, id }),
+  resizeMain: (width: number, height: number, anchorRight: boolean) =>
+    invoke<void>('resize_main', { width, height, anchorRight }),
   quit: () => invoke<void>('quit_app'),
 };
 
