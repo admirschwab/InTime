@@ -115,6 +115,10 @@
         <input type="checkbox" bind:checked={form.saveWindowPosition} onchange={persist} />
         Fensterposition beim Start wiederherstellen
       </label>
+      <label class="check">
+        <input type="checkbox" bind:checked={form.windowsOnTrackerMonitor} onchange={persist} />
+        Bericht, Einstellungen usw. auf dem Bildschirm von InTime öffnen (sonst auf dem Hauptbildschirm)
+      </label>
     {:else if section === 'behavior'}
       <h2>Verhalten</h2>
       <label class="check">

@@ -1,6 +1,6 @@
 use tauri::menu::{MenuBuilder, MenuItemBuilder, PredefinedMenuItem};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
-use tauri::{AppHandle, Manager, PhysicalPosition, WebviewUrl, WebviewWindowBuilder};
+use tauri::{AppHandle, Manager, PhysicalPosition, WebviewUrl, WebviewWindow, WebviewWindowBuilder};
 
 use crate::AppState;
 use crate::error::{Error, Result};
@@ -30,18 +30,51 @@ pub fn open(app: &AppHandle, view: &str, id: Option<i64>) -> Result<()> {
     }
 
     let init = format!("window.__INTIME__ = {};", serde_json::json!({ "view": view, "id": id }));
+    // Built hidden and shown once it sits in the middle of the target monitor.
     let mut builder = WebviewWindowBuilder::new(app, &label, WebviewUrl::App("index.html".into()))
         .title(title)
         .inner_size(width, height)
         .min_inner_size(400.0, 400.0)
-        .center()
+        .visible(false)
         .data_directory(paths::webview_dir())
         .initialization_script(&init);
     // Owned by the always-on-top main window, so Windows keeps it above the main window.
     if let Some(main) = app.get_webview_window("main") {
         builder = builder.parent(&main)?;
     }
-    builder.build()?;
+    let window = builder.build()?;
+    if let Err(e) = center_on_target_monitor(app, &window) {
+        log::warn!("Fenster konnte nicht positioniert werden: {e}");
+        window.center()?;
+    }
+    window.show()?;
+    window.set_focus()?;
+    Ok(())
+}
+
+/// Centers `window` in the work area of the monitor the main window is on, or of the
+/// primary monitor if that is turned off in the settings.
+fn center_on_target_monitor(app: &AppHandle, window: &WebviewWindow) -> Result<()> {
+    let on_tracker_monitor = {
+        let state = app.state::<AppState>();
+        repo::settings(&state.db.lock().unwrap())?.windows_on_tracker_monitor
+    };
+    let main = app.get_webview_window("main");
+    let monitor = match main {
+        Some(main) if on_tracker_monitor => main.current_monitor()?,
+        _ => app.primary_monitor()?,
+    };
+    let Some(monitor) = monitor else { return Err(Error::msg("Kein Bildschirm gefunden.")) };
+
+    // The window was created with the scale of another monitor; size it for the target one.
+    let ratio = monitor.scale_factor() / window.scale_factor()?;
+    let size = window.outer_size()?;
+    let area = monitor.work_area();
+    let width = ((size.width as f64 * ratio) as i32).min(area.size.width as i32);
+    let height = ((size.height as f64 * ratio) as i32).min(area.size.height as i32);
+    let x = area.position.x + (area.size.width as i32 - width) / 2;
+    let y = area.position.y + (area.size.height as i32 - height) / 2;
+    window.set_position(PhysicalPosition::new(x, y))?;
     Ok(())
 }
 

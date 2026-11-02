@@ -70,6 +70,8 @@ pub struct Settings {
     pub display_projects_right: bool,
     pub hide_projects_on_mouse_exit: bool,
     pub save_window_position: bool,
+    /// Open report, settings etc. on the monitor of the main window instead of the primary one.
+    pub windows_on_tracker_monitor: bool,
     pub remind_notes: bool,
     pub remind_notes_only_work: bool,
     pub confirm_close: bool,
@@ -85,6 +87,7 @@ impl Default for Settings {
             display_projects_right: false,
             hide_projects_on_mouse_exit: false,
             save_window_position: true,
+            windows_on_tracker_monitor: true,
             remind_notes: false,
             remind_notes_only_work: false,
             confirm_close: false,

@@ -40,6 +40,7 @@ export interface Settings {
   displayProjectsRight: boolean;
   hideProjectsOnMouseExit: boolean;
   saveWindowPosition: boolean;
+  windowsOnTrackerMonitor: boolean;
   remindNotes: boolean;
   remindNotesOnlyWork: boolean;
   confirmClose: boolean;

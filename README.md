@@ -202,7 +202,7 @@ Projekte ohne Zuordnung und Projekte, die nicht als Arbeitszeit zählen (z. B. P
 | Bereich | Was du einstellen kannst |
 | --- | --- |
 | **Farben** | Hintergrund, Text und Hover-Farben – jederzeit auf Standard zurücksetzbar |
-| **Darstellung** | Projektliste rechts statt links · Liste ausblenden, wenn die Maus das Fenster verlässt · Fensterposition merken |
+| **Darstellung** | Projektliste rechts statt links · Liste ausblenden, wenn die Maus das Fenster verlässt · Fensterposition merken · Bericht & Co. auf dem Bildschirm von InTime oder auf dem Hauptbildschirm öffnen |
 | **Verhalten** | Beim Wechseln nach einer Notiz fragen (optional nur bei Arbeitsprojekten) · Vor dem Beenden nachfragen |
 | **Heimat API** | Verbindung zu Heimat und Zuordnung der Projekte – siehe [Heimat-Anbindung](#heimat-anbindung) |
 | **Daten** | Export und Import |
