@@ -1835,7 +1835,6 @@ dependencies = [
 name = "intime"
 version = "0.2.7"
 dependencies = [
- "base64 0.22.1",
  "chrono",
  "log",
  "reqwest 0.12.28",

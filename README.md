@@ -33,6 +33,7 @@ InTime zeigt dir in einem kleinen Fenster, woran du gerade arbeitest und wie lan
 - 📋 **Zusammenfassung kopieren** – zum Einfügen in Mails, Tickets oder Zeiterfassungssysteme
 - 🔗 **Heimat-Anbindung** – Projekte aus Heimat übernehmen und Tageszeiten mit einem Klick übertragen
 - 💾 **Automatisches Speichern** alle 15 Sekunden – auch bei einem Absturz geht praktisch nichts verloren
+- 🌙 **Läuft auch über Nacht sauber** – Einträge werden um Mitternacht pro Tag aufgeteilt, Standby-Zeit wird nicht mitgezählt
 - 🎨 **Anpassbare Farben** und Layout
 - 📦 **Export und Import** deiner Daten als JSON-Datei
 - 🔔 **Projektfarbe auf einen Blick** – Tray-Symbol und das Uhr-Symbol in der Taskleiste nehmen die Farbe des aktiven Projekts an
@@ -124,7 +125,7 @@ Der Uninstaller fragt, ob auch deine **Daten** gelöscht werden sollen. Vorgabe 
 
 ### Der typische Ablauf
 
-1. **InTime starten** – es beginnt automatisch mit dem Standardprojekt (z. B. „Pause“).
+1. **InTime starten** – es beginnt automatisch mit dem Standardprojekt (anfangs „Leerlauf“).
 2. **Projekt anklicken**, sobald du mit einer Tätigkeit beginnst.
 3. **Notiz eintippen**, was du gerade machst (wird automatisch gespeichert).
 4. **Nächstes Projekt anklicken**, wenn du wechselst. Die Notiz wird beim alten Eintrag gespeichert und das Feld ist wieder leer.
@@ -172,7 +173,7 @@ InTime kann deine erfasste Arbeitszeit direkt nach [Heimat](https://heimat-softw
 
 1. Öffne **Einstellungen → Heimat API**.
 2. Trage die **Heimat-URL** ein – die Adresse, unter der du Heimat im Browser öffnest (z. B. `https://heimat.deine-firma.de`).
-3. Erstelle in Heimat ein persönliches **Zugangstoken** und füge es ein. InTime zeigt dir an, bis wann es gültig ist.
+3. Erstelle in Heimat ein persönliches **Zugangstoken** und füge es ein. Es wird verdeckt angezeigt, nur Anfang und Ende sind lesbar. InTime zeigt dir an, bis wann es gültig ist.
 4. Klicke auf **Verbindung testen** und dann auf **Speichern**.
 
 ### 2. Projekte zuordnen
@@ -212,7 +213,7 @@ Projekte ohne Zuordnung und Projekte, die nicht als Arbeitszeit zählen (z. B. P
 
 ## Deine Daten
 
-- Alles wird **lokal auf deinem PC** gespeichert – nichts wird ins Internet übertragen.
+- Alles wird **lokal auf deinem PC** gespeichert. Ins Internet geht nur etwas, wenn du Zeiten nach [Heimat](#heimat-anbindung) überträgst.
 - Alles liegt in einem Ordner: **`%LOCALAPPDATA%\InTime`**
   (Zum Öffnen `Windows + R` drücken, den Pfad einfügen und Enter drücken.)
 
@@ -221,7 +222,7 @@ Projekte ohne Zuordnung und Projekte, die nicht als Arbeitszeit zählen (z. B. P
   ├── InTime.exe        Programm
   ├── uninstall.ps1     Uninstaller
   ├── install.json      Infos zur Installation (Version, Datum, Verknüpfungen)
-  ├── data\intime.db    deine Projekte, Zeiten und Einstellungen
+  ├── data\intime.db    deine Projekte, Zeiten, Einstellungen und der Heimat-Zugang
   ├── logs\             Protokolldateien (hilfreich bei Fehlern)
   └── webview\          Zwischenspeicher der Oberfläche
   ```
@@ -240,7 +241,10 @@ Nein. InTime speichert alle 15 Sekunden automatisch. Wird der PC einfach ausgesc
 Rechtsklick auf das richtige Projekt → **Wechseln mit Zeitübertrag…** und die Minuten angeben. Oder später im Bericht den Eintrag bearbeiten.
 
 **Wo ist das Fenster hin?**
-Klicke auf das farbige InTime-Symbol unten rechts in der Taskleiste (ggf. unter dem Pfeil `^`).
+Klicke auf das farbige InTime-Symbol unten rechts in der Taskleiste (ggf. unter dem Pfeil `^`) – oder starte InTime einfach noch einmal. Es läuft immer nur einmal, ein zweiter Start holt das vorhandene Fenster nach vorne.
+
+**Was passiert, wenn InTime über Nacht läuft?**
+Um Mitternacht wird der laufende Eintrag aufgeteilt, damit jeder Tag im Bericht seine eigenen Zeiten hat. Geht der PC in den Standby oder Ruhezustand, endet der Eintrag dort. Nach dem Aufwachen läuft das Standardprojekt – die Zeit dazwischen wird nicht mitgezählt.
 
 **Warum kann ich ein Projekt nicht löschen?**
 Das Standardprojekt kann nicht gelöscht werden. Markiere zuerst ein anderes Projekt als Standard.
@@ -276,6 +280,8 @@ npm run package        # Release-ZIP lokal bauen → release/InTime-windows.zip
 npm run check          # TypeScript/Svelte prüfen
 cd src-tauri && cargo test   # Backend-Tests
 ```
+
+> **Hinweis:** InTime läuft immer nur einmal – beende eine installierte InTime, bevor du `npm run tauri dev` startest, sonst holt der Start nur das laufende Fenster nach vorne. Die Entwicklungsversion nutzt **dieselbe Datenbank** unter `%LOCALAPPDATA%\InTime`, Testeinträge landen also in deinen echten Zeiten.
 
 ### Projektstruktur
 

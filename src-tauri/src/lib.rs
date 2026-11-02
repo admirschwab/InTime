@@ -85,13 +85,7 @@ pub fn run() {
         .setup(|app| {
             let data_dir = paths::data_dir();
             std::fs::create_dir_all(&data_dir)?;
-            let db_path = data_dir.join("intime.db");
-            if let Ok(legacy_dir) = app.path().app_data_dir() {
-                if let Err(e) = paths::migrate_legacy_db(&legacy_dir, &db_path) {
-                    log::error!("Alte Datenbank konnte nicht übernommen werden: {e}");
-                }
-            }
-            let conn = db::open(&db_path)?;
+            let conn = db::open(&data_dir.join("intime.db"))?;
             repo::recover_and_start(&conn)?;
             app.manage(AppState { db: Mutex::new(conn), main_position: Mutex::new(None) });
 

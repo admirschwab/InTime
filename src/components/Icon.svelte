@@ -15,7 +15,6 @@
     right: 'M9 18l6-6-6-6',
     down: 'M6 9l6 6 6-6',
     up: 'M6 15l6-6 6 6',
-    switch: 'M7 7h13l-3-3M17 17H4l3 3',
     clock: 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM12 7v5l3 2',
     download: 'M12 4v11M7 10l5 5 5-5M4 20h16',
     upload: 'M12 20V9M7 14l5-5 5 5M4 4h16',
