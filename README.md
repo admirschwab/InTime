@@ -154,8 +154,9 @@ Der Uninstaller fragt, ob auch deine **Daten** gelöscht werden sollen. Vorgabe 
 Über 📊 im Hauptfenster (oder Rechtsklick auf das Tray-Symbol → **Bericht**):
 
 - **Kalender** links – Tage mit erfasster Zeit sind mit einem Punkt markiert.
+- **Heute** – springt jederzeit zurück zum heutigen Tag und Monat.
 - **Zeitleiste** – zeigt farbig, wann du woran gearbeitet hast. Fahre mit der Maus darüber für Details.
-- **Projektliste** – Summe und Notizen pro Projekt. Klicke auf ein Projekt, um die einzelnen Einträge zu sehen, zu **bearbeiten** ✏️ oder zu **löschen** 🗑️.
+- **Projektliste** – Summe und Notizen pro Projekt. Klicke auf ein Projekt, um die einzelnen Einträge zu sehen, zu **bearbeiten** ✏️ oder zu **löschen** 🗑️. Welche Projekte auf- oder zugeklappt sind, merkt sich InTime – auch für andere Tage und beim nächsten Öffnen.
 - **+ Eintrag** – nachträglich eine Zeit erfassen.
 - **Kopieren** – kopiert eine Zusammenfassung des Tages in die Zwischenablage.
 

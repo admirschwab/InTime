@@ -21,14 +21,26 @@
     entries: Entry[];
   }
 
-  const today = startOfDay(new Date());
-  let date = $state(today);
-  let calYear = $state(today.getFullYear());
-  let calMonth = $state(today.getMonth() + 1);
+  /** Projects whose entries are shown; kept across days and when the report is reopened. */
+  const EXPANDED_KEY = 'intime.report.expanded';
+
+  function loadExpanded(): Set<number> {
+    try {
+      const ids: unknown = JSON.parse(localStorage.getItem(EXPANDED_KEY) ?? '[]');
+      return new Set(Array.isArray(ids) ? ids.filter((id) => typeof id === 'number') : []);
+    } catch {
+      return new Set();
+    }
+  }
+
+  const initial = startOfDay(new Date());
+  let date = $state(initial);
+  let calYear = $state(initial.getFullYear());
+  let calMonth = $state(initial.getMonth() + 1);
   let marked = $state(new Set<number>());
   let works = $state<Work[]>([]);
   let projects = $state<Project[]>([]);
-  let expanded = $state(new Set<number>());
+  let expanded = $state(loadExpanded());
   let now = $state(Date.now());
   let editing = $state<{ work: Work | null } | null>(null);
   let deleting = $state<Work | null>(null);
@@ -37,7 +49,8 @@
   let message = $state('');
   let messageTimer: ReturnType<typeof setTimeout> | undefined;
 
-  const isToday = $derived(dateKey(date) === dateKey(new Date(now)));
+  // Follows the clock, so a report left open overnight marks the right day.
+  const today = $derived(startOfDay(new Date(now)));
 
   const projectOf = (id: number): Project =>
     projects.find((p) => p.id === id) ?? {
@@ -130,18 +143,41 @@
     date = startOfDay(d);
     calYear = date.getFullYear();
     calMonth = date.getMonth() + 1;
-    expanded = new Set();
+  }
+
+  /** Always usable: jumps to today and its month and reloads, even if today is already selected. */
+  function goToday() {
+    now = Date.now();
+    selectDate(new Date(now));
+    loadDay();
+    loadMarked();
+  }
+
+  function setExpanded(next: Set<number>) {
+    expanded = next;
+    try {
+      localStorage.setItem(EXPANDED_KEY, JSON.stringify([...next]));
+    } catch {
+      // Not remembered then – the report works the same.
+    }
   }
 
   function toggle(id: number) {
     const next = new Set(expanded);
     if (next.has(id)) next.delete(id);
     else next.add(id);
-    expanded = next;
+    setExpanded(next);
   }
 
+  const allOpen = $derived(groups.length > 0 && groups.every((g) => expanded.has(g.project.id)));
+
   function toggleAll() {
-    expanded = expanded.size === groups.length ? new Set() : new Set(groups.map((g) => g.project.id));
+    const next = new Set(expanded);
+    for (const g of groups) {
+      if (allOpen) next.delete(g.project.id);
+      else next.add(g.project.id);
+    }
+    setExpanded(next);
   }
 
   function flash(text: string) {
@@ -193,11 +229,12 @@
       selected={date}
       year={calYear}
       month={calMonth}
+      {today}
       {marked}
       onselect={selectDate}
       onmonth={(y, m) => ((calYear = y), (calMonth = m))}
     />
-    <button class="btn" disabled={isToday} onclick={() => selectDate(new Date())}>Heute</button>
+    <button class="btn" onclick={goToday}>Heute</button>
 
     <div class="stats">
       <div class="stat">
@@ -236,7 +273,7 @@
       </div>
       <div class="actions">
         <button class="btn" onclick={toggleAll} disabled={groups.length === 0}>
-          {expanded.size === groups.length && groups.length ? 'Alle zuklappen' : 'Alle aufklappen'}
+          {allOpen ? 'Alle zuklappen' : 'Alle aufklappen'}
         </button>
         <button class="btn" onclick={() => copy(summary(), 'Zusammenfassung')} disabled={groups.length === 0}>
           <Icon name="copy" size={14} /> Kopieren

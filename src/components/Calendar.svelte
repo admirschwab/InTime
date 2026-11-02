@@ -3,6 +3,7 @@
 
   let {
     selected,
+    today,
     year,
     month,
     marked,
@@ -10,6 +11,8 @@
     onmonth,
   }: {
     selected: Date;
+    /** Highlighted as today; passed in so it stays right while the window is open overnight. */
+    today: Date;
     /** Displayed month, `month` is 1-based. */
     year: number;
     month: number;
@@ -32,7 +35,6 @@
     return [...Array(offset).fill(null), ...Array.from({ length: days }, (_, i) => i + 1)] as (number | null)[];
   });
 
-  const today = new Date();
   const isSame = (d: Date, day: number) => d.getFullYear() === year && d.getMonth() === month - 1 && d.getDate() === day;
 
   function shift(delta: number) {
