@@ -13,7 +13,7 @@
 
   initSettings();
 
-  // The main window shows the active project's color instead (see indicator.rs).
+  // The main window shows the app's clock in the active project's color instead (see MainView).
   const viewIcons: Record<string, IconName> = { report: 'report', settings: 'settings', project: 'edit', heimat: 'upload' };
   if (viewIcons[ctx.view]) setWindowIcon(viewIcons[ctx.view]).catch(() => {});
 

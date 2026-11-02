@@ -1,0 +1,10 @@
+<!-- InTime app icon. Same geometry as setWindowIcon() in src/lib/windowIcon.ts (64 px tile,
+     24 px stroke icon drawn at 40 px). After changing it, regenerate the icons:
+     npx tauri icon src-tauri/app-icon.svg (then delete the android/ and ios/ folders). -->
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 64 64">
+  <rect width="64" height="64" rx="14" fill="#4c8bf5"/>
+  <g transform="translate(12 12) scale(1.6666667)" fill="none" stroke="#fff" stroke-width="2.2"
+     stroke-linecap="round" stroke-linejoin="round">
+    <path d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM12 7v5l3 2"/>
+  </g>
+</svg>

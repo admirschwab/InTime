@@ -35,7 +35,7 @@ InTime zeigt dir in einem kleinen Fenster, woran du gerade arbeitest und wie lan
 - 💾 **Automatisches Speichern** alle 15 Sekunden – auch bei einem Absturz geht praktisch nichts verloren
 - 🎨 **Anpassbare Farben** und Layout
 - 📦 **Export und Import** deiner Daten als JSON-Datei
-- 🔔 **Tray-Symbol** in der Taskleiste, das die Farbe des aktiven Projekts annimmt
+- 🔔 **Projektfarbe auf einen Blick** – Tray-Symbol und das Uhr-Symbol in der Taskleiste nehmen die Farbe des aktiven Projekts an
 
 ---
 
@@ -288,9 +288,10 @@ src-tauri/              Backend (Rust)
   src/db.rs             Schema und Migrationen
   src/commands.rs       Schnittstelle zur Oberfläche
   src/windows.rs        Fenster und Tray-Symbol
-  src/indicator.rs      Projektfarbe in Tray und Taskleiste
+  src/indicator.rs      Projektfarbe im Tray-Symbol
   src/paths.rs          Speicherorte unter %LOCALAPPDATA%\InTime
   src/heimat.rs         Heimat-API-Client und Tagesabgleich (inkl. Tests)
+  app-icon.svg          Vorlage für das App-Icon (npx tauri icon src-tauri/app-icon.svg)
 installer/              PowerShell-Installer und -Uninstaller
 scripts/package.mjs     Packt Exe und Uninstaller zur Release-ZIP
 .github/workflows/      Automatische Prüfung und Builds

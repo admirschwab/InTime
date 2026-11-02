@@ -1,4 +1,5 @@
-//! Keeps the tray icon, tray tooltip and taskbar icon in the color of the running project.
+//! Keeps the tray icon and tray tooltip in the color of the running project.
+//! The taskbar icon is drawn by the main window itself (see MainView.svelte).
 
 use tauri::image::Image;
 use tauri::{AppHandle, Manager};
@@ -47,8 +48,5 @@ pub fn refresh(app: &AppHandle) {
     if let Some(tray) = app.tray_by_id(TRAY_ID) {
         let _ = tray.set_icon(Some(circle_icon(&project.color, 32)));
         let _ = tray.set_tooltip(Some(format!("InTime – {}", project.name)));
-    }
-    if let Some(window) = app.get_webview_window("main") {
-        let _ = window.set_icon(circle_icon(&project.color, 64));
     }
 }

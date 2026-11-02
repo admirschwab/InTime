@@ -4,6 +4,7 @@
   import { api, errorText, onDataChanged, subscribe, type Current, type Project } from '../lib/api';
   import { duration, parseTime } from '../lib/format';
   import { settings } from '../lib/settings.svelte';
+  import { setWindowIcon } from '../lib/windowIcon';
   import Dialog from '../components/Dialog.svelte';
   import Icon from '../components/Icon.svelte';
 
@@ -65,6 +66,12 @@
   const title = $derived(active ? `${duration(elapsed)} · ${active.name} – InTime` : 'InTime');
   $effect(() => {
     win.setTitle(title);
+  });
+
+  // Taskbar icon: the app's clock, tinted in the active project's color.
+  const iconColor = $derived(active?.color);
+  $effect(() => {
+    if (iconColor) setWindowIcon('clock', iconColor).catch(() => {});
   });
 
   async function load() {
