@@ -113,6 +113,18 @@ pub fn resize_main(app: &AppHandle, width: f64, height: f64, anchor_right: bool)
     Ok(())
 }
 
+/// Gives InTime its own AppUserModelID; must run before the first window is created.
+/// Without it Windows matches the exe to its Start menu entry and shows that entry's (cached)
+/// icon in the taskbar instead of the window icon, so the project color would never appear.
+pub fn set_app_id() {
+    use ::windows::Win32::UI::Shell::SetCurrentProcessExplicitAppUserModelID;
+    use ::windows::core::w;
+
+    if let Err(e) = unsafe { SetCurrentProcessExplicitAppUserModelID(w!("AdmirSchwab.InTime.Tracker")) } {
+        log::warn!("App-ID konnte nicht gesetzt werden: {e}");
+    }
+}
+
 /// Sets a window's title bar and taskbar icon from RGBA pixels. Tauri's `set_icon` only sets
 /// the small icon; without a big one the taskbar falls back to the exe icon from Windows'
 /// icon cache, which can still be an old one after an update.

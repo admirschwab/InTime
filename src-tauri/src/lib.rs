@@ -83,6 +83,7 @@ pub fn run() {
                 .build(),
         )
         .setup(|app| {
+            windows::set_app_id();
             let data_dir = paths::data_dir();
             std::fs::create_dir_all(&data_dir)?;
             let conn = db::open(&data_dir.join("intime.db"))?;
