@@ -1,6 +1,5 @@
-import { Image } from '@tauri-apps/api/image';
-import { getCurrentWindow } from '@tauri-apps/api/window';
 import { iconPaths, type IconName } from '../components/Icon.svelte';
+import { api } from './api';
 
 const SIZE = 64;
 /** Tile color of the app icon (src-tauri/app-icon.svg). */
@@ -39,6 +38,5 @@ export async function setWindowIcon(name: IconName, color = APP_BLUE) {
   ctx.lineJoin = 'round';
   ctx.stroke(new Path2D(iconPaths[name]));
 
-  const rgba = ctx.getImageData(0, 0, SIZE, SIZE).data.buffer;
-  await getCurrentWindow().setIcon(await Image.new(rgba, SIZE, SIZE));
+  await api.setWindowIcon(ctx.getImageData(0, 0, SIZE, SIZE).data, SIZE, SIZE);
 }

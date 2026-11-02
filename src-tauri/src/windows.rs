@@ -1,3 +1,4 @@
+use tauri::image::Image;
 use tauri::menu::{MenuBuilder, MenuItemBuilder, PredefinedMenuItem};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
 use tauri::{AppHandle, Manager, PhysicalPosition, WebviewUrl, WebviewWindow, WebviewWindowBuilder};
@@ -109,6 +110,41 @@ pub fn resize_main(app: &AppHandle, width: f64, height: f64, anchor_right: bool)
     let x = if anchor_right { pos.x + outer.width as i32 - new_width } else { pos.x };
     unsafe { SetWindowPos(window.hwnd()?, None, x, pos.y, new_width, new_height, SWP_NOZORDER | SWP_NOACTIVATE) }
         .map_err(|e| Error::msg(format!("Fenstergröße konnte nicht geändert werden: {e}")))?;
+    Ok(())
+}
+
+/// Sets a window's title bar and taskbar icon from RGBA pixels. Tauri's `set_icon` only sets
+/// the small icon; without a big one the taskbar falls back to the exe icon from Windows'
+/// icon cache, which can still be an old one after an update.
+pub fn set_icon(window: &WebviewWindow, rgba: Vec<u8>, width: u32, height: u32) -> Result<()> {
+    use ::windows::Win32::Foundation::{LPARAM, WPARAM};
+    use ::windows::Win32::UI::WindowsAndMessaging::{CreateIcon, DestroyIcon, HICON, ICON_BIG, SendMessageW, WM_SETICON};
+
+    if rgba.len() != (width * height * 4) as usize {
+        return Err(Error::msg("Ungültige Icon-Daten."));
+    }
+    window.set_icon(Image::new_owned(rgba.clone(), width, height))?;
+
+    // 32-bit icons take BGRA pixels with alpha; the AND mask is then ignored (as in tao).
+    let mut bgra = rgba;
+    for pixel in bgra.chunks_exact_mut(4) {
+        pixel.swap(0, 2);
+    }
+    let and_mask = vec![0u8; bgra.len() / 4];
+    unsafe {
+        let icon = CreateIcon(None, width as i32, height as i32, 1, 32, and_mask.as_ptr(), bgra.as_ptr())
+            .map_err(|e| Error::msg(format!("Icon konnte nicht erstellt werden: {e}")))?;
+        let previous = SendMessageW(
+            window.hwnd()?,
+            WM_SETICON,
+            Some(WPARAM(ICON_BIG as usize)),
+            Some(LPARAM(icon.0 as isize)),
+        );
+        // Only this function sets big icons, so the replaced one is ours to free.
+        if previous.0 != 0 {
+            let _ = DestroyIcon(HICON(previous.0 as *mut _));
+        }
+    }
     Ok(())
 }
 

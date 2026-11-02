@@ -137,6 +137,9 @@ export const api = {
 
   openWindow: (view: 'report' | 'settings' | 'project' | 'heimat', id: number | null = null) =>
     invoke<void>('open_window', { view, id }),
+  /** Title bar and taskbar icon of the calling window. */
+  setWindowIcon: (rgba: Uint8ClampedArray, width: number, height: number) =>
+    invoke<void>('set_window_icon', { rgba: Array.from(rgba), width, height }),
   resizeMain: (width: number, height: number, anchorRight: boolean) =>
     invoke<void>('resize_main', { width, height, anchorRight }),
   quit: () => invoke<void>('quit_app'),

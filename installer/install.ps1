@@ -197,6 +197,12 @@ function Install-InTime {
         Set-ItemProperty -Path $UninstallKey -Name 'EstimatedSize' -Value $sizeKb -Type DWord
         Write-Host '  [OK] Unter "Installierte Apps" eingetragen'
 
+        # The exe is replaced in place, so Windows would keep showing its old icon from the
+        # icon cache (start menu, shortcuts). Refreshing it is best effort.
+        if ($isUpdate) {
+            try { Start-Process -FilePath 'ie4uinit.exe' -ArgumentList '-show' -WindowStyle Hidden -Wait -ErrorAction Stop } catch { }
+        }
+
         # Installation details, read by the uninstaller and handy for support.
         [ordered]@{
             name        = 'InTime'

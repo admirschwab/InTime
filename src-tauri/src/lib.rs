@@ -133,6 +133,7 @@ pub fn run() {
             commands::import_data,
             commands::open_window,
             commands::resize_main,
+            commands::set_window_icon,
             commands::quit_app,
             commands::heimat_get_config,
             commands::heimat_save_config,

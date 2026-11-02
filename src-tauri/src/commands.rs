@@ -1,5 +1,5 @@
 use chrono::NaiveDate;
-use tauri::{AppHandle, Emitter, State};
+use tauri::{AppHandle, Emitter, State, WebviewWindow};
 
 use crate::AppState;
 use crate::error::{Error, Result};
@@ -148,6 +148,11 @@ pub async fn open_window(app: AppHandle, view: String, id: Option<i64>) -> Resul
 #[tauri::command]
 pub async fn resize_main(app: AppHandle, width: f64, height: f64, anchor_right: bool) -> Result<()> {
     windows::resize_main(&app, width, height, anchor_right)
+}
+
+#[tauri::command]
+pub fn set_window_icon(window: WebviewWindow, rgba: Vec<u8>, width: u32, height: u32) -> Result<()> {
+    windows::set_icon(&window, rgba, width, height)
 }
 
 #[tauri::command]
