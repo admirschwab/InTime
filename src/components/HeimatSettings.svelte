@@ -12,6 +12,12 @@
     saved = { ...c };
   });
 
+  /** Only the first and last characters, enough to tell tokens apart. */
+  function maskToken(token: string): string {
+    const t = token.trim();
+    return t.length > 12 ? `${t.slice(0, 4)}…${t.slice(-4)}` : '…';
+  }
+
   const expiry = $derived(config.token.trim() ? tokenExpiry(config.token) : null);
   const expired = $derived(expiry !== null && expiry.getTime() < Date.now());
   const complete = $derived(config.url.trim() !== '' && config.token.trim() !== '');
@@ -63,13 +69,22 @@
 
 <label class="field">
   Zugangstoken
-  <textarea rows="3" class="token" bind:value={config.token} spellcheck="false" placeholder="eyJhbGciOi…"></textarea>
+  <!-- A password field, so the token is never shown in full (e.g. when sharing the screen). -->
+  <input
+    type="password"
+    class="token"
+    bind:value={config.token}
+    autocomplete="off"
+    spellcheck="false"
+    placeholder="Token hier einfügen"
+  />
   <span class="hint">
     Erstelle in Heimat unter deinem Konto bzw. den API-Einstellungen ein persönliches Zugangstoken und füge es hier ein.
   </span>
   {#if config.token.trim()}
     {#if expiry}
       <span class:bad={expired} class:good={!expired}>
+        Token <span class="mono">{maskToken(config.token)}</span> ·
         {expired ? 'Abgelaufen am' : 'Gültig bis'}
         {expiry.toLocaleString('de-DE', { dateStyle: 'medium', timeStyle: 'short' })}
       </span>
@@ -111,7 +126,11 @@
   .token {
     font-family: Consolas, 'Cascadia Mono', monospace;
     font-size: 12px;
-    word-break: break-all;
+  }
+
+  /* WebView2 (Edge) would otherwise offer an "eye" button that reveals the token. */
+  .token::-ms-reveal {
+    display: none;
   }
 
   .buttons {

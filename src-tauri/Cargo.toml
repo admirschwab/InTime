@@ -1,6 +1,6 @@
 [package]
 name = "intime"
-version = "0.2.5"
+version = "0.2.6"
 description = "InTime – Zeiterfassung pro Projekt"
 authors = ["InTime"]
 license = ""
