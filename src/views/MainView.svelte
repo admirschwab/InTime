@@ -29,7 +29,8 @@
   let menu = $state<{ project: Project; x: number; y: number } | null>(null);
   let dialog = $state<DialogState | null>(null);
   let reminderNotes = $state('');
-  let transferMinutes = $state(5);
+  /** Empty until the user types a value – there is no pre-selected transfer. */
+  let transferMinutes = $state<number | null>(null);
   let error = $state('');
 
   let notesTimer: ReturnType<typeof setTimeout> | undefined;
@@ -115,6 +116,12 @@
       return;
     }
     doSwitch(project, transfer, notes);
+  }
+
+  /** Switches with the entered transfer; ignored while the field is empty. */
+  function confirmTransfer(project: Project) {
+    if (!transferMinutes || transferMinutes < 1) return;
+    requestSwitch(project, Math.min(maxTransfer, Math.floor(transferMinutes)));
   }
 
   async function doSwitch(project: Project, transfer: number, workNotes: string) {
@@ -295,15 +302,13 @@
 
 {#if menu}
   <div class="menu" style:left="{menu.x}px" style:top="{menu.y}px" role="menu">
-    <button role="menuitem" onclick={() => fromMenu((p) => requestSwitch(p))}>
-      <Icon name="switch" size={14} /> Wechseln
-    </button>
+    <!-- Plain switching is a left click; a second "Wechseln" entry here only caused misclicks. -->
     <button
       role="menuitem"
       disabled={maxTransfer < 1}
       onclick={() =>
         fromMenu((p) => {
-          transferMinutes = Math.min(5, maxTransfer);
+          transferMinutes = null;
           dialog = { kind: 'transfer', project: p };
         })}
     >
@@ -347,14 +352,18 @@
     <label class="field">
       Wie viele der letzten Minuten gehören schon zu „{d.project.name}“? (max. {maxTransfer})
       <!-- svelte-ignore a11y_autofocus -->
-      <input type="number" min="0" max={maxTransfer} bind:value={transferMinutes} autofocus />
+      <input
+        type="number"
+        min="1"
+        max={maxTransfer}
+        bind:value={transferMinutes}
+        onkeydown={(e) => e.key === 'Enter' && confirmTransfer(d.project)}
+        autofocus
+      />
     </label>
     {#snippet actions()}
       <button class="btn" onclick={() => (dialog = null)}>Abbrechen</button>
-      <button
-        class="btn primary"
-        onclick={() => requestSwitch(d.project, Math.max(0, Math.min(maxTransfer, transferMinutes || 0)))}
-      >
+      <button class="btn primary" disabled={!transferMinutes || transferMinutes < 1} onclick={() => confirmTransfer(d.project)}>
         Wechseln
       </button>
     {/snippet}

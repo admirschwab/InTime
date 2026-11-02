@@ -134,8 +134,7 @@ Der Uninstaller fragt, ob auch deine **Daten** gelöscht werden sollen. Vorgabe 
 
 - **Neues Projekt:** Klicke unten in der Liste auf **+ Neues Projekt**.
 - **Rechtsklick auf ein Projekt** öffnet ein Menü:
-  - **Wechseln** – zu diesem Projekt wechseln
-  - **Wechseln mit Zeitübertrag…** – die letzten *n* Minuten werden schon diesem Projekt zugerechnet
+  - **Wechseln mit Zeitübertrag…** – die letzten *n* Minuten werden schon diesem Projekt zugerechnet (Minuten eintippen, mit Enter bestätigen)
   - **Bearbeiten** – Name, Farbe, Beschreibung ändern
   - **Nach oben / Nach unten** – Reihenfolge ändern
   - **Löschen** – das Projekt verschwindet aus der Liste, bereits erfasste Zeiten bleiben im Bericht erhalten
