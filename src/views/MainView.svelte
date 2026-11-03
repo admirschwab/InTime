@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { tick } from 'svelte';
   import { listen } from '@tauri-apps/api/event';
   import { getCurrentWindow } from '@tauri-apps/api/window';
   import { api, errorText, onDataChanged, subscribe, type Current, type Project } from '../lib/api';
@@ -8,9 +9,8 @@
   import Dialog from '../components/Dialog.svelte';
   import Icon from '../components/Icon.svelte';
 
+  /** Width of the main panel; the window is 540 px wide (see `windows::create_main`). */
   const MAIN_WIDTH = 300;
-  const LIST_WIDTH = 240;
-  const HEIGHT = 320;
 
   type DialogState =
     | { kind: 'notes'; project: Project; transfer: number }
@@ -37,7 +37,8 @@
   let notesTimer: ReturnType<typeof setTimeout> | undefined;
   let errorTimer: ReturnType<typeof setTimeout> | undefined;
   let collapseTimer: ReturnType<typeof setTimeout> | undefined;
-  let resizing = Promise.resolve();
+  /** Only the newest `load` may write its result; an older, slower one must not overwrite it. */
+  let loadSeq = 0;
   let searchInput: HTMLInputElement | undefined = $state();
 
   const projects = $derived(allProjects.filter((p) => p.isEnabled));
@@ -75,14 +76,16 @@
   });
 
   async function load() {
+    const seq = ++loadSeq;
     try {
       const [projectList, cur] = await Promise.all([api.projects(true), api.current()]);
+      if (seq !== loadSeq) return;
       // Keep locally typed notes unless a different work is running now.
       if (cur.work.id !== current?.work.id) notes = cur.work.notes;
       allProjects = projectList;
       current = cur;
     } catch (e) {
-      showError(e);
+      if (seq === loadSeq) showError(e);
     }
   }
 
@@ -98,9 +101,15 @@
     };
   });
 
-  // Expand again when the auto-hide setting is switched off.
+  // Expand again when the auto-hide setting is switched off, and for dialogs and menus,
+  // which are laid out over the whole window.
   $effect(() => {
-    if (!s.hideProjectsOnMouseExit && collapsed) setCollapsed(false);
+    if (collapsed && (!s.hideProjectsOnMouseExit || dialog || menu)) setCollapsed(false);
+  });
+
+  // Tell the backend which part of the window is visible; also when the list changes sides.
+  $effect(() => {
+    api.setMainCollapsed(collapsed, !s.displayProjectsRight, MAIN_WIDTH).catch(showError);
   });
 
   function showError(e: unknown) {
@@ -191,13 +200,9 @@
     await api.quit();
   }
 
+  /** The list stays rendered; the backend only clips it away, so nothing moves or re-renders. */
   function setCollapsed(value: boolean) {
-    if (value === collapsed) return;
     collapsed = value;
-    // Resizes run one after another, so quick mouse movements cannot interleave them.
-    // With the list on the left, the right edge stays put and the main panel does not move.
-    const width = value ? MAIN_WIDTH : MAIN_WIDTH + LIST_WIDTH;
-    resizing = resizing.then(() => api.resizeMain(width, HEIGHT, !s.displayProjectsRight)).catch(showError);
   }
 
   function onMouseEnter() {
@@ -226,14 +231,16 @@
   onkeydown={(e) => {
     if (e.ctrlKey && e.key === 'f') {
       e.preventDefault();
-      searchInput?.focus();
+      setCollapsed(false);
+      // The list is inert while hidden; focus once that is lifted.
+      tick().then(() => searchInput?.focus());
     }
   }}
   onclick={() => (menu = null)}
 />
 <svelte:document onmouseenter={onMouseEnter} onmouseleave={onMouseLeave} />
 
-<div class="shell" class:left={!s.displayProjectsRight} style:--project={active?.color ?? 'var(--accent)'}>
+<div class="shell" class:left={!s.displayProjectsRight} class:collapsed style:--project={active?.color ?? 'var(--accent)'}>
   <section class="main" role="presentation" onmousedown={startDrag}>
     <header>
       <span class="brand"><span class="dot" style:background="var(--project)"></span>InTime</span>
@@ -262,49 +269,47 @@
       oninput={onNotesInput}
       spellcheck="false"
     ></textarea>
+
+    {#if error}
+      <div class="toast" role="alert">{error}</div>
+    {/if}
   </section>
 
-  {#if !collapsed}
-    <section class="list">
-      <div class="search">
-        <Icon name="search" size={14} />
-        <input
-          type="search"
-          placeholder="Projekt suchen…"
-          bind:value={search}
-          bind:this={searchInput}
-          onkeydown={onSearchKey}
-        />
-      </div>
-      <ul>
-        {#each filtered as project (project.id)}
-          <li>
-            <button
-              class="project"
-              class:active={project.id === active?.id}
-              style:--color={project.color}
-              title={project.description || project.name}
-              onclick={() => requestSwitch(project)}
-              oncontextmenu={(e) => openMenu(e, project)}
-            >
-              <span class="dot" style:background={project.color}></span>
-              <span class="name">{project.name}</span>
-              {#if todayByProject.get(project.id)}
-                <span class="time mono">{duration(todayByProject.get(project.id)!, true)}</span>
-              {/if}
-            </button>
-          </li>
-        {:else}
-          <li class="empty muted">Kein Projekt gefunden.</li>
-        {/each}
-      </ul>
-      <button class="add" onclick={() => api.openWindow('project')}><Icon name="plus" size={14} /> Neues Projekt</button>
-    </section>
-  {/if}
-
-  {#if error}
-    <div class="toast" role="alert">{error}</div>
-  {/if}
+  <section class="list" inert={collapsed}>
+    <div class="search">
+      <Icon name="search" size={14} />
+      <input
+        type="search"
+        placeholder="Projekt suchen…"
+        bind:value={search}
+        bind:this={searchInput}
+        onkeydown={onSearchKey}
+      />
+    </div>
+    <ul>
+      {#each filtered as project (project.id)}
+        <li>
+          <button
+            class="project"
+            class:active={project.id === active?.id}
+            style:--color={project.color}
+            title={project.description || project.name}
+            onclick={() => requestSwitch(project)}
+            oncontextmenu={(e) => openMenu(e, project)}
+          >
+            <span class="dot" style:background={project.color}></span>
+            <span class="name">{project.name}</span>
+            {#if todayByProject.get(project.id)}
+              <span class="time mono">{duration(todayByProject.get(project.id)!, true)}</span>
+            {/if}
+          </button>
+        </li>
+      {:else}
+        <li class="empty muted">Kein Projekt gefunden.</li>
+      {/each}
+    </ul>
+    <button class="add" onclick={() => api.openWindow('project')}><Icon name="plus" size={14} /> Neues Projekt</button>
+  </section>
 </div>
 
 {#if menu}
@@ -407,6 +412,7 @@
   }
 
   .main {
+    position: relative;
     display: flex;
     flex-direction: column;
     flex: none;
@@ -622,8 +628,9 @@
     border-top: 1px solid var(--border);
   }
 
+  /* Inside the main panel, so it stays visible while the list is hidden. */
   .toast {
-    position: fixed;
+    position: absolute;
     left: 10px;
     right: 10px;
     bottom: 10px;

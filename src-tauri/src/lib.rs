@@ -8,35 +8,46 @@ mod paths;
 mod repo;
 mod windows;
 
-use std::sync::Mutex;
-use std::time::{Duration, SystemTime};
+use std::sync::{Mutex, MutexGuard};
+use std::time::Duration;
 
-use chrono::NaiveDateTime;
 use tauri::{AppHandle, Emitter, Manager, RunEvent, WindowEvent};
 use tauri_plugin_log::{Target, TargetKind};
 
 const AUTOSAVE_INTERVAL: Duration = Duration::from_secs(15);
-/// A longer pause between two auto-saves means the PC was asleep or hibernating.
-const SUSPEND_GAP: Duration = Duration::from_secs(120);
 
 pub struct AppState {
-    pub db: Mutex<rusqlite::Connection>,
+    db: Mutex<rusqlite::Connection>,
     /// Last known physical position of the main window, persisted by the auto-save.
-    pub main_position: Mutex<Option<(i32, i32)>>,
+    main_position: Mutex<Option<(i32, i32)>>,
+    /// Whether the project list of the main window is hidden (see `windows::apply_main_region`).
+    pub main_layout: Mutex<windows::MainLayout>,
+}
+
+/// Locks a mutex even if a panic happened while it was held. A poisoned lock would otherwise
+/// make every later command and the auto-save fail until InTime is restarted. The data
+/// behind it is a database connection (transactions roll back on drop) or plain values.
+pub fn lock<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
+    mutex.lock().unwrap_or_else(|poisoned| poisoned.into_inner())
+}
+
+impl AppState {
+    pub fn db(&self) -> MutexGuard<'_, rusqlite::Connection> {
+        lock(&self.db)
+    }
 }
 
 /// Writes the running work's end time and the window position. Because this runs every
 /// few seconds, a crash or hard shutdown loses at most one interval.
-/// See `repo::autosave` for `suspended_since`.
-fn save_state(app: &AppHandle, suspended_since: Option<NaiveDateTime>) {
+fn save_state(app: &AppHandle) {
     let state = app.state::<AppState>();
-    let position = *state.main_position.lock().unwrap();
+    let position = *lock(&state.main_position);
     let changed = {
-        let conn = state.db.lock().unwrap();
+        let conn = state.db();
         if let Some(position) = position {
             let _ = repo::save_window_position(&conn, position);
         }
-        repo::autosave(&conn, repo::now(), suspended_since).unwrap_or_else(|e| {
+        repo::autosave(&conn, repo::now()).unwrap_or_else(|e| {
             log::error!("Auto-Save fehlgeschlagen: {e}");
             false
         })
@@ -46,22 +57,27 @@ fn save_state(app: &AppHandle, suspended_since: Option<NaiveDateTime>) {
     }
 }
 
+/// Time keeps running while the PC is locked or asleep: the running work simply goes on.
+/// A panic in one save must not end the thread, or nothing would be saved any more.
 fn start_autosave(app: AppHandle) {
     std::thread::spawn(move || {
-        // Wall-clock time of the last save; system time keeps running while the PC sleeps.
-        let mut last = (SystemTime::now(), repo::now());
         loop {
             std::thread::sleep(AUTOSAVE_INTERVAL);
-            let now = SystemTime::now();
-            let gap = now.duration_since(last.0).unwrap_or_default();
-            let suspended_since = (gap > SUSPEND_GAP).then_some(last.1);
-            if let Some(since) = suspended_since {
-                log::info!("Ruhezustand seit {since} erkannt, laufender Eintrag endet dort.");
+            if std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| save_state(&app))).is_err() {
+                log::error!("Auto-Save abgestürzt, nächster Versuch in {} s.", AUTOSAVE_INTERVAL.as_secs());
             }
-            save_state(&app, suspended_since);
-            last = (now, repo::now());
         }
     });
+}
+
+/// Panics end up in the log file instead of vanishing with the console-less release exe.
+fn log_panics() {
+    let default = std::panic::take_hook();
+    std::panic::set_hook(Box::new(move |info| {
+        log::error!("Panic: {info}
+{}", std::backtrace::Backtrace::force_capture());
+        default(info);
+    }));
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -83,12 +99,18 @@ pub fn run() {
                 .build(),
         )
         .setup(|app| {
+            log_panics();
+            log::info!("InTime {} gestartet.", app.package_info().version);
             windows::set_app_id();
             let data_dir = paths::data_dir();
             std::fs::create_dir_all(&data_dir)?;
             let conn = db::open(&data_dir.join("intime.db"))?;
             repo::recover_and_start(&conn)?;
-            app.manage(AppState { db: Mutex::new(conn), main_position: Mutex::new(None) });
+            app.manage(AppState {
+                db: Mutex::new(conn),
+                main_position: Mutex::new(None),
+                main_layout: Mutex::new(windows::MainLayout::default()),
+            });
 
             let handle = app.handle();
             windows::create_main(handle)?;
@@ -109,7 +131,11 @@ pub fn run() {
                     let _ = window.emit_to("main", "request-close", ());
                 }
                 WindowEvent::Moved(pos) => {
-                    *window.state::<AppState>().main_position.lock().unwrap() = Some((pos.x, pos.y));
+                    *lock(&window.state::<AppState>().main_position) = Some((pos.x, pos.y));
+                }
+                // The region is in physical pixels and has to follow DPI changes.
+                WindowEvent::ScaleFactorChanged { .. } | WindowEvent::Resized(_) => {
+                    let _ = windows::apply_main_region(window.app_handle());
                 }
                 _ => {}
             }
@@ -133,7 +159,7 @@ pub fn run() {
             commands::export_data,
             commands::import_data,
             commands::open_window,
-            commands::resize_main,
+            commands::set_main_collapsed,
             commands::set_window_icon,
             commands::quit_app,
             commands::heimat_get_config,
@@ -153,9 +179,9 @@ pub fn run() {
                 if app.try_state::<AppState>().is_none() {
                     return;
                 }
-                save_state(app, None);
+                save_state(app);
                 let state = app.state::<AppState>();
-                let conn = state.db.lock().unwrap();
+                let conn = state.db();
                 if let Err(e) = repo::finish_active(&conn, repo::now(), None) {
                     log::error!("Beenden: laufender Eintrag konnte nicht gespeichert werden: {e}");
                 }

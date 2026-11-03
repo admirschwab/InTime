@@ -18,40 +18,40 @@ pub fn notify(app: &AppHandle) {
 
 #[tauri::command]
 pub fn get_projects(state: State<AppState>, include_disabled: bool) -> Result<Vec<Project>> {
-    repo::projects(&state.db.lock().unwrap(), include_disabled)
+    repo::projects(&state.db(), include_disabled)
 }
 
 #[tauri::command]
 pub fn create_project(app: AppHandle, state: State<AppState>, input: ProjectInput) -> Result<Project> {
-    let project = repo::create_project(&state.db.lock().unwrap(), &input)?;
+    let project = repo::create_project(&state.db(), &input)?;
     notify(&app);
     Ok(project)
 }
 
 #[tauri::command]
 pub fn update_project(app: AppHandle, state: State<AppState>, id: i64, input: ProjectInput) -> Result<Project> {
-    let project = repo::update_project(&state.db.lock().unwrap(), id, &input)?;
+    let project = repo::update_project(&state.db(), id, &input)?;
     notify(&app);
     Ok(project)
 }
 
 #[tauri::command]
 pub fn delete_project(app: AppHandle, state: State<AppState>, id: i64) -> Result<()> {
-    repo::delete_project(&state.db.lock().unwrap(), id)?;
+    repo::delete_project(&state.db(), id)?;
     notify(&app);
     Ok(())
 }
 
 #[tauri::command]
 pub fn reorder_projects(app: AppHandle, state: State<AppState>, ids: Vec<i64>) -> Result<()> {
-    repo::reorder_projects(&state.db.lock().unwrap(), &ids)?;
+    repo::reorder_projects(&state.db(), &ids)?;
     notify(&app);
     Ok(())
 }
 
 #[tauri::command]
 pub fn get_current(state: State<AppState>) -> Result<Current> {
-    repo::current(&state.db.lock().unwrap())
+    repo::current(&state.db())
 }
 
 #[tauri::command]
@@ -62,14 +62,14 @@ pub fn switch_project(
     notes: Option<String>,
     transfer_minutes: Option<i64>,
 ) -> Result<()> {
-    repo::switch_project(&state.db.lock().unwrap(), project_id, notes.as_deref(), transfer_minutes.unwrap_or(0))?;
+    repo::switch_project(&state.db(), project_id, notes.as_deref(), transfer_minutes.unwrap_or(0))?;
     notify(&app);
     Ok(())
 }
 
 #[tauri::command]
 pub fn update_current_notes(state: State<AppState>, notes: String) -> Result<()> {
-    repo::update_current_notes(&state.db.lock().unwrap(), &notes)
+    repo::update_current_notes(&state.db(), &notes)
 }
 
 fn parse_date(date: &str) -> Result<NaiveDate> {
@@ -78,50 +78,50 @@ fn parse_date(date: &str) -> Result<NaiveDate> {
 
 #[tauri::command]
 pub fn get_works_for_day(state: State<AppState>, date: String) -> Result<Vec<Work>> {
-    repo::works_for_day(&state.db.lock().unwrap(), parse_date(&date)?)
+    repo::works_for_day(&state.db(), parse_date(&date)?)
 }
 
 #[tauri::command]
 pub fn get_days_with_work(state: State<AppState>, year: i32, month: u32) -> Result<Vec<u32>> {
-    repo::days_with_work(&state.db.lock().unwrap(), year, month)
+    repo::days_with_work(&state.db(), year, month)
 }
 
 #[tauri::command]
 pub fn create_work(app: AppHandle, state: State<AppState>, input: WorkInput) -> Result<()> {
-    repo::create_work(&state.db.lock().unwrap(), &input)?;
+    repo::create_work(&state.db(), &input)?;
     notify(&app);
     Ok(())
 }
 
 #[tauri::command]
 pub fn update_work(app: AppHandle, state: State<AppState>, id: i64, input: WorkInput) -> Result<()> {
-    repo::update_work(&state.db.lock().unwrap(), id, &input)?;
+    repo::update_work(&state.db(), id, &input)?;
     notify(&app);
     Ok(())
 }
 
 #[tauri::command]
 pub fn delete_work(app: AppHandle, state: State<AppState>, id: i64) -> Result<()> {
-    repo::delete_work(&state.db.lock().unwrap(), id)?;
+    repo::delete_work(&state.db(), id)?;
     notify(&app);
     Ok(())
 }
 
 #[tauri::command]
 pub fn get_settings(state: State<AppState>) -> Result<Settings> {
-    repo::settings(&state.db.lock().unwrap())
+    repo::settings(&state.db())
 }
 
 #[tauri::command]
 pub fn save_settings(app: AppHandle, state: State<AppState>, settings: Settings) -> Result<()> {
-    repo::save_settings(&state.db.lock().unwrap(), &settings)?;
+    repo::save_settings(&state.db(), &settings)?;
     let _ = app.emit("settings-changed", &settings);
     Ok(())
 }
 
 #[tauri::command]
 pub fn export_data(state: State<AppState>, path: String) -> Result<()> {
-    let data = repo::export(&state.db.lock().unwrap())?;
+    let data = repo::export(&state.db())?;
     std::fs::write(path, serde_json::to_string_pretty(&data)?)?;
     Ok(())
 }
@@ -132,7 +132,7 @@ pub fn import_data(app: AppHandle, state: State<AppState>, path: String) -> Resu
     let data: ExportData = serde_json::from_str(&std::fs::read_to_string(path)?)
         .map_err(|_| Error::msg("Die Datei konnte nicht gelesen werden. Ist es ein InTime-Export?"))?;
     {
-        let conn = state.db.lock().unwrap();
+        let conn = state.db();
         repo::finish_active(&conn, repo::now(), None)?;
         repo::import(&conn, &data)?;
     }
@@ -145,9 +145,10 @@ pub async fn open_window(app: AppHandle, view: String, id: Option<i64>) -> Resul
     windows::open(&app, &view, id)
 }
 
+/// Shows or hides the project list of the main window (see `windows::apply_main_region`).
 #[tauri::command]
-pub async fn resize_main(app: AppHandle, width: f64, height: f64, anchor_right: bool) -> Result<()> {
-    windows::resize_main(&app, width, height, anchor_right)
+pub fn set_main_collapsed(app: AppHandle, collapsed: bool, list_left: bool, main_width: f64) -> Result<()> {
+    windows::set_main_layout(&app, windows::MainLayout { collapsed, list_left, main_width })
 }
 
 #[tauri::command]
@@ -168,17 +169,17 @@ const IMPORT_COLORS: &[&str] = &[
 ];
 
 fn heimat_client(state: &State<'_, AppState>) -> Result<HeimatClient> {
-    HeimatClient::new(&repo::heimat_config(&state.db.lock().unwrap())?)
+    HeimatClient::new(&repo::heimat_config(&state.db())?)
 }
 
 #[tauri::command]
 pub fn heimat_get_config(state: State<AppState>) -> Result<HeimatConfig> {
-    repo::heimat_config(&state.db.lock().unwrap())
+    repo::heimat_config(&state.db())
 }
 
 #[tauri::command]
 pub fn heimat_save_config(app: AppHandle, state: State<AppState>, config: HeimatConfig) -> Result<()> {
-    repo::save_heimat_config(&state.db.lock().unwrap(), &config)?;
+    repo::save_heimat_config(&state.db(), &config)?;
     let _ = app.emit("heimat-changed", ());
     Ok(())
 }
@@ -198,12 +199,12 @@ pub async fn heimat_tasks(state: State<'_, AppState>) -> Result<Vec<HeimatTask>>
 
 #[tauri::command]
 pub fn heimat_get_mappings(state: State<AppState>) -> Result<Vec<HeimatMapping>> {
-    repo::heimat_mappings(&state.db.lock().unwrap())
+    repo::heimat_mappings(&state.db())
 }
 
 #[tauri::command]
 pub fn heimat_save_mappings(app: AppHandle, state: State<AppState>, mappings: Vec<HeimatMapping>) -> Result<()> {
-    repo::replace_heimat_mappings(&state.db.lock().unwrap(), &mappings)?;
+    repo::replace_heimat_mappings(&state.db(), &mappings)?;
     notify(&app);
     Ok(())
 }
@@ -212,7 +213,7 @@ pub fn heimat_save_mappings(app: AppHandle, state: State<AppState>, mappings: Ve
 #[tauri::command]
 pub fn heimat_import_tasks(app: AppHandle, state: State<AppState>, tasks: Vec<HeimatTask>) -> Result<()> {
     {
-        let conn = state.db.lock().unwrap();
+        let conn = state.db();
         let tx = conn.unchecked_transaction()?;
         for (i, task) in tasks.iter().enumerate() {
             let description = match task.booking_hint.as_deref().map(str::trim) {
@@ -248,7 +249,7 @@ pub fn heimat_import_tasks(app: AppHandle, state: State<AppState>, tasks: Vec<He
 pub async fn heimat_day(state: State<'_, AppState>, date: String) -> Result<Vec<SyncRow>> {
     let date = parse_date(&date)?;
     let (client, works, projects, mappings) = {
-        let conn = state.db.lock().unwrap();
+        let conn = state.db();
         (
             HeimatClient::new(&repo::heimat_config(&conn)?)?,
             repo::works_for_day(&conn, date)?,

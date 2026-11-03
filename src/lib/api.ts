@@ -140,8 +140,9 @@ export const api = {
   /** Title bar and taskbar icon of the calling window. */
   setWindowIcon: (rgba: Uint8ClampedArray, width: number, height: number) =>
     invoke<void>('set_window_icon', { rgba: Array.from(rgba), width, height }),
-  resizeMain: (width: number, height: number, anchorRight: boolean) =>
-    invoke<void>('resize_main', { width, height, anchorRight }),
+  /** Hides or shows the project list of the main window without moving or resizing it. */
+  setMainCollapsed: (collapsed: boolean, listLeft: boolean, mainWidth: number) =>
+    invoke<void>('set_main_collapsed', { collapsed, listLeft, mainWidth }),
   quit: () => invoke<void>('quit_app'),
 };
 

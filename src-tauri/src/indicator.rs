@@ -40,7 +40,7 @@ pub fn circle_icon(hex: &str, size: u32) -> Image<'static> {
 pub fn refresh(app: &AppHandle) {
     let project = {
         let state = app.state::<AppState>();
-        let conn = state.db.lock().unwrap();
+        let conn = state.db();
         repo::active_work(&conn).ok().flatten().and_then(|w| repo::project(&conn, w.project_id).ok())
     };
     let Some(project) = project else { return };

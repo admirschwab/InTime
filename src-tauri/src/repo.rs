@@ -201,11 +201,15 @@ pub fn switch_project(conn: &Connection, project_id: i64, notes: Option<&str>, t
     if !target.is_enabled {
         return Err(Error::msg("Dieses Projekt wurde gelöscht."));
     }
-    let mut at = now() - Duration::minutes(transfer_minutes.max(0));
-    if let Some(work) = active_work(conn)? {
+    let now = now();
+    let tx = conn.unchecked_transaction()?;
+    // The auto-save may not have split the running work at midnight yet (it runs every few
+    // seconds, after a standby even later); otherwise the whole entry would land on the day before.
+    split_at_midnight(&tx, now)?;
+    let mut at = now - Duration::minutes(transfer_minutes.max(0));
+    if let Some(work) = active_work(&tx)? {
         at = at.max(parse(&work.start_time)?);
     }
-    let tx = conn.unchecked_transaction()?;
     finish_active(&tx, at, notes)?;
     start_active(&tx, project_id, at)?;
     tx.commit()?;
@@ -225,19 +229,12 @@ pub fn recover_and_start(conn: &Connection) -> Result<()> {
 }
 
 /// Writes `now` as end time of the running work. Returns true if the running work changed:
-/// - Work running past midnight is split, so every day gets its own entry (same project
-///   and notes) and the report and today's totals stay per day.
-/// - `suspended_since` is the last save before the PC went to sleep. The running work then
-///   ends there and the default project starts now, like after a restart, so the time the
-///   PC was asleep is not counted.
-pub fn autosave(conn: &Connection, now: NaiveDateTime, suspended_since: Option<NaiveDateTime>) -> Result<bool> {
+/// work running past midnight is split, so every day gets its own entry (same project and
+/// notes) and the report and today's totals stay per day. Time the PC was locked or asleep
+/// is counted on the running work like any other time.
+pub fn autosave(conn: &Connection, now: NaiveDateTime) -> Result<bool> {
     let tx = conn.unchecked_transaction()?;
-    let mut changed = split_at_midnight(&tx, suspended_since.unwrap_or(now))?;
-    if let Some(since) = suspended_since {
-        finish_active(&tx, since, None)?;
-        start_active(&tx, default_project_id(&tx)?, now)?;
-        changed = true;
-    }
+    let changed = split_at_midnight(&tx, now)?;
     tx.execute("UPDATE work SET end_time = ?1 WHERE active = 1", [fmt(now)])?;
     tx.commit()?;
     Ok(changed)
@@ -588,8 +585,8 @@ mod tests {
         let p = create_project(&conn, &input("A")).unwrap();
         start_active_with_notes(&conn, p.id, at("2026-11-01T22:00:00"), "Release").unwrap();
 
-        assert!(!autosave(&conn, at("2026-11-01T23:59:00"), None).unwrap());
-        assert!(autosave(&conn, at("2026-11-03T08:00:00"), None).unwrap());
+        assert!(!autosave(&conn, at("2026-11-01T23:59:00")).unwrap());
+        assert!(autosave(&conn, at("2026-11-03T08:00:00")).unwrap());
 
         let works = all_works(&conn);
         let spans: Vec<_> = works.iter().map(|w| (w.start_time.as_str(), w.end_time.as_str(), w.active)).collect();
@@ -602,23 +599,5 @@ mod tests {
             ]
         );
         assert!(works.iter().all(|w| w.project_id == p.id && w.notes == "Release"));
-    }
-
-    #[test]
-    fn autosave_after_sleep_ends_work_at_last_save_and_starts_default() {
-        let conn = open_in_memory();
-        let default_id = default_project_id(&conn).unwrap();
-        let p = create_project(&conn, &input("A")).unwrap();
-        start_active(&conn, p.id, at("2026-11-02T17:00:00")).unwrap();
-
-        let changed =
-            autosave(&conn, at("2026-11-03T08:00:00"), Some(at("2026-11-02T18:00:00"))).unwrap();
-
-        assert!(changed);
-        let works = all_works(&conn);
-        assert_eq!(works.len(), 2);
-        assert_eq!((works[0].end_time.as_str(), works[0].active), ("2026-11-02T18:00:00", false));
-        assert_eq!(works[1].project_id, default_id);
-        assert_eq!((works[1].start_time.as_str(), works[1].active), ("2026-11-03T08:00:00", true));
     }
 }

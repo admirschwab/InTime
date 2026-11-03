@@ -33,7 +33,7 @@ InTime zeigt dir in einem kleinen Fenster, woran du gerade arbeitest und wie lan
 - 📋 **Zusammenfassung kopieren** – zum Einfügen in Mails, Tickets oder Zeiterfassungssysteme
 - 🔗 **Heimat-Anbindung** – Projekte aus Heimat übernehmen und Tageszeiten mit einem Klick übertragen
 - 💾 **Automatisches Speichern** alle 15 Sekunden – auch bei einem Absturz geht praktisch nichts verloren
-- 🌙 **Läuft auch über Nacht sauber** – Einträge werden um Mitternacht pro Tag aufgeteilt, Standby-Zeit wird nicht mitgezählt
+- 🌙 **Läuft auch über Nacht sauber** – Einträge werden um Mitternacht pro Tag aufgeteilt
 - 🎨 **Anpassbare Farben** und Layout
 - 📦 **Export und Import** deiner Daten als JSON-Datei
 - 🔔 **Projektfarbe auf einen Blick** – Tray-Symbol und das Uhr-Symbol in der Taskleiste nehmen die Farbe des aktiven Projekts an
@@ -244,7 +244,10 @@ Rechtsklick auf das richtige Projekt → **Wechseln mit Zeitübertrag…** und d
 Klicke auf das farbige InTime-Symbol unten rechts in der Taskleiste (ggf. unter dem Pfeil `^`) – oder starte InTime einfach noch einmal. Es läuft immer nur einmal, ein zweiter Start holt das vorhandene Fenster nach vorne.
 
 **Was passiert, wenn InTime über Nacht läuft?**
-Um Mitternacht wird der laufende Eintrag aufgeteilt, damit jeder Tag im Bericht seine eigenen Zeiten hat. Geht der PC in den Standby oder Ruhezustand, endet der Eintrag dort. Nach dem Aufwachen läuft das Standardprojekt – die Zeit dazwischen wird nicht mitgezählt.
+Um Mitternacht wird der laufende Eintrag aufgeteilt, damit jeder Tag im Bericht seine eigenen Zeiten hat.
+
+**Was passiert, wenn der PC gesperrt ist oder im Standby?**
+Die Zeit läuft auf dem aktiven Projekt einfach weiter – wie bei einer Stoppuhr. Wechsle vor der Mittagspause also am besten auf „Pause“ oder korrigiere den Eintrag danach im Bericht.
 
 **Warum kann ich ein Projekt nicht löschen?**
 Das Standardprojekt kann nicht gelöscht werden. Markiere zuerst ein anderes Projekt als Standard.

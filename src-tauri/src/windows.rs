@@ -58,7 +58,7 @@ pub fn open(app: &AppHandle, view: &str, id: Option<i64>) -> Result<()> {
 fn center_on_target_monitor(app: &AppHandle, window: &WebviewWindow) -> Result<()> {
     let on_tracker_monitor = {
         let state = app.state::<AppState>();
-        repo::settings(&state.db.lock().unwrap())?.windows_on_tracker_monitor
+        repo::settings(&state.db())?.windows_on_tracker_monitor
     };
     let main = app.get_webview_window("main");
     let monitor = match main {
@@ -95,21 +95,72 @@ pub fn create_main(app: &AppHandle) -> Result<()> {
     Ok(())
 }
 
-/// Sets the main window's inner size (logical pixels) in a single step. With `anchor_right`
-/// the right edge stays in place, so the time display does not move when the project list
-/// on the left is shown or hidden. Separate size and position calls showed the window
-/// jumping sideways in between.
-pub fn resize_main(app: &AppHandle, width: f64, height: f64, anchor_right: bool) -> Result<()> {
-    use ::windows::Win32::UI::WindowsAndMessaging::{SWP_NOACTIVATE, SWP_NOZORDER, SetWindowPos};
+/// Which part of the main window is visible. The window itself keeps its size and position;
+/// hiding the project list only clips it away with a window region. Resizing and moving the
+/// window instead made the WebView show its old content at the wrong place for a moment, so
+/// the panel jumped back and forth whenever the list was shown or hidden.
+#[derive(Debug, Clone, Copy, Default)]
+pub struct MainLayout {
+    pub collapsed: bool,
+    /// The project list is left of the main panel (it is clipped from the left then).
+    pub list_left: bool,
+    /// Width of the main panel in logical pixels; the part that stays visible.
+    pub main_width: f64,
+}
 
-    let window = app.get_webview_window("main").ok_or_else(|| Error::msg("Hauptfenster nicht gefunden."))?;
-    let scale = window.scale_factor()?;
-    let (pos, outer, inner) = (window.outer_position()?, window.outer_size()?, window.inner_size()?);
-    let new_width = (width * scale).round() as i32 + (outer.width - inner.width) as i32;
-    let new_height = (height * scale).round() as i32 + (outer.height - inner.height) as i32;
-    let x = if anchor_right { pos.x + outer.width as i32 - new_width } else { pos.x };
-    unsafe { SetWindowPos(window.hwnd()?, None, x, pos.y, new_width, new_height, SWP_NOZORDER | SWP_NOACTIVATE) }
-        .map_err(|e| Error::msg(format!("Fenstergröße konnte nicht geändert werden: {e}")))?;
+/// The region last set, so window events that do not change it are ignored (setting a region
+/// can itself cause window events, which must not lead to setting it again and again).
+static APPLIED_REGION: std::sync::Mutex<Option<[i32; 4]>> = std::sync::Mutex::new(None);
+
+pub fn set_main_layout(app: &AppHandle, layout: MainLayout) -> Result<()> {
+    *crate::lock(&app.state::<AppState>().main_layout) = layout;
+    apply_main_region(app)
+}
+
+/// Clips the main window to the main panel while the project list is hidden. A clipped part
+/// is not part of the window at all: it shows and receives clicks of whatever is behind it.
+/// A region is also kept while the list is shown, so the window looks the same in both states
+/// (Windows draws no shadow or rounded corners for windows with a region).
+pub fn apply_main_region(app: &AppHandle) -> Result<()> {
+    use ::windows::Win32::Foundation::{POINT, RECT};
+    use ::windows::Win32::Graphics::Gdi::{ClientToScreen, CreateRectRgn, DeleteObject, SetWindowRgn};
+    use ::windows::Win32::UI::WindowsAndMessaging::{GetClientRect, GetWindowRect};
+
+    let Some(window) = app.get_webview_window("main") else { return Ok(()) };
+    let layout = *crate::lock(&app.state::<AppState>().main_layout);
+    let hwnd = window.hwnd()?;
+    let main_width = (layout.main_width * window.scale_factor()?).round() as i32;
+    let fail = |e: ::windows::core::Error| Error::msg(format!("Fensterbereich konnte nicht gesetzt werden: {e}"));
+    unsafe {
+        // Region coordinates are relative to the window rectangle, the panel to the client area.
+        let (mut window_rect, mut client, mut origin) = (RECT::default(), RECT::default(), POINT::default());
+        GetWindowRect(hwnd, &mut window_rect).map_err(fail)?;
+        GetClientRect(hwnd, &mut client).map_err(fail)?;
+        let _ = ClientToScreen(hwnd, &mut origin);
+        let (dx, dy) = (origin.x - window_rect.left, origin.y - window_rect.top);
+        let (width, height) = (client.right, client.bottom);
+        // Minimized: keep the region, it still fits once the window is restored.
+        if width <= 0 || height <= 0 {
+            return Ok(());
+        }
+        let (left, right) = match layout {
+            MainLayout { collapsed: false, .. } => (0, width),
+            MainLayout { list_left: true, .. } => ((width - main_width).max(0), width),
+            MainLayout { list_left: false, .. } => (0, main_width.min(width)),
+        };
+        let rect = [dx + left, dy, dx + right, dy + height];
+        let mut applied = crate::lock(&APPLIED_REGION);
+        if *applied == Some(rect) {
+            return Ok(());
+        }
+        let region = CreateRectRgn(rect[0], rect[1], rect[2], rect[3]);
+        // On success the system owns the region; only a failed call leaves it to us.
+        if SetWindowRgn(hwnd, Some(region), true) == 0 {
+            let _ = DeleteObject(region.into());
+            return Err(Error::msg("Fensterbereich konnte nicht gesetzt werden."));
+        }
+        *applied = Some(rect);
+    }
     Ok(())
 }
 
@@ -205,7 +256,7 @@ pub fn create_tray(app: &AppHandle) -> Result<()> {
 pub fn restore_main_position(app: &AppHandle) -> Result<()> {
     let position = {
         let state = app.state::<AppState>();
-        let conn = state.db.lock().unwrap();
+        let conn = state.db();
         if !repo::settings(&conn)?.save_window_position {
             return Ok(());
         }
